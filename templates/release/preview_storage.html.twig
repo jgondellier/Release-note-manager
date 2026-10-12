@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Source Confluence {{ format.label }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Source Confluence {{ format.label }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Source Confluence — {{ format.label }}</h1>
+        <p class="muted">Contenu exact envoyé à Confluence (format de stockage XHTML, identique pour Cloud et Server/DC). Titre de page : <strong>{{ page_title }}</strong></p>
+    </div>
+</div>
+{% include 'release/_preview_tabs.html.twig' with {storage: true} %}
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% else %}
+    <div class="card">
+        <button type="button" class="btn btn-sm btn-secondary" data-copy="#storage-source">Copier</button>
+        <pre class="code" id="storage-source">{{ storage|replace({'><': ">\n<"}) }}</pre>
+    </div>
+{% endif %}
+{% endblock %}

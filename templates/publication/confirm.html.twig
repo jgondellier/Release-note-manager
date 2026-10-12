@@ -1,0 +1,40 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Confirmer la publication{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Confirmation{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Confirmer la publication</h1>
+        <p class="muted">Release : <strong>{{ release.displayName }}</strong> — {{ rows|length }} cible(s).</p>
+    </div>
+</div>
+<section class="card">
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Release</th><th>Format</th><th>Destination</th><th>Espace</th><th>Titre de la page</th><th>Résultat attendu</th></tr></thead>
+            <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>{{ release.jiraVersionName }}</td>
+                    <td><strong>{{ row.format.label }}</strong></td>
+                    <td>{{ row.target.label }}<br><span class="small muted">{{ row.connectionName }}</span></td>
+                    <td>{{ row.spaceKey }}{% if row.parentPageId %}<br><span class="small muted">sous la page {{ row.parentPageId }}</span>{% endif %}</td>
+                    <td>{{ row.pageTitle }}</td>
+                    <td class="small">{{ row.expectedOutcome }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <form method="post" action="{{ path('publication_execute', {id: release.id}) }}" data-busy="Publication en cours…">
+        <input type="hidden" name="_token" value="{{ csrf_token('publication-execute-' ~ release.id) }}">
+        {% for row in rows %}<input type="hidden" name="targets[]" value="{{ row.key }}">{% endfor %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Publier maintenant</button>
+            <a class="btn btn-ghost" href="{{ path('publication_select', {id: release.id}) }}">← Modifier la sélection</a>
+        </div>
+    </form>
+</section>
+{% endblock %}

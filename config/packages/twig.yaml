@@ -1,0 +1,11 @@
+twig:
+    file_name_pattern: '*.twig'
+    form_themes: ['form/app_form_theme.html.twig']
+    strict_variables: '%kernel.debug%'
+    date:
+        format: 'd/m/Y H:i'
+        timezone: 'Europe/Paris'
+
+when@test:
+    twig:
+        strict_variables: true

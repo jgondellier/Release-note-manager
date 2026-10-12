@@ -1,0 +1,29 @@
+{% import 'render/confluence/_macros.xml.twig' as c %}
+{% set groups = doc.sectionsByCategory %}
+{% set titles = {feature: 'Évolutions fonctionnelles', fix: 'Corrections', other: 'Autres changements', technical: 'Changements techniques'} %}
+{% set meta %}
+<p><strong>Version :</strong> {{ doc.release.jiraVersionName }}{% if doc.release.releaseDate %} · <strong>Mise en production :</strong> {{ doc.release.releaseDate|date('d/m/Y') }}{% endif %}</p>
+<p>{% for key in ['feature', 'fix', 'other', 'technical'] %}{% if groups[key] is defined %}{{ c.status(groups[key]|length ~ ' ' ~ titles[key]|lower, key == 'feature' ? 'Blue' : (key == 'fix' ? 'Red' : 'Grey')) }} {% endif %}{% endfor %}</p>
+{% endset %}
+{{ c.panel('Release note fonctionnelle — ' ~ doc.project.name, meta, '#EEF7F1', '#1F845A') }}
+{% if doc.intro %}{{ doc.intro|rn_text }}{% endif %}
+{% for key in ['feature', 'fix', 'other', 'technical'] %}
+{% if groups[key] is defined %}
+<h2>{{ titles[key] }}</h2>
+{% for s in groups[key] %}
+<h3>{{ s.title }}</h3>
+{% if s.section.audience %}<p><em>Parcours concernés : {{ s.section.audience }}</em></p>{% endif %}
+{% if s.content %}{{ s.content|rn_text }}{% endif %}
+{{ c.callout('info', 'Impacts métier', s.section.impact|rn_text) }}
+{% if s.section.functionalShowTickets and s.tickets is not empty %}<ul>{% for t in s.tickets %}<li>{{ t.summary }}</li>{% endfor %}</ul>{% endif %}
+{{ c.links(s.links, 'Documentation') }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% if doc.sections is empty %}<p><em>Aucune section n'est visible dans ce format.</em></p>{% endif %}
+{% if doc.actions is not empty %}
+{% set actions %}<ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>{% endset %}
+{{ c.callout('note', 'Actions à prévoir', actions) }}
+{% endif %}
+{{ c.links(doc.links, 'Documentation et liens utiles') }}
+{{ c.footer(doc) }}

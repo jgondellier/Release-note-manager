@@ -1,0 +1,85 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Actualiser depuis Jira{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Actualiser depuis Jira{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Actualiser depuis Jira</h1>
+        <p class="muted">Version {{ release.jiraVersionName }}. Rien n'a encore été modifié : vérifiez le plan ci-dessous puis confirmez.</p>
+    </div>
+</div>
+
+{% if error %}
+    <div class="alert alert-danger"><strong>Lecture Jira impossible.</strong> {{ error }}</div>
+    <a class="btn btn-secondary" href="{{ path('release_show', {id: release.id}) }}">← Retour à l'éditeur</a>
+{% else %}
+{% set s = plan.summary %}
+<div class="stats">
+    {{ ui.stat(s.added, 'Nouveaux tickets', 'stat-primary') }}
+    {{ ui.stat(s.updated, 'Métadonnées actualisées', 'stat-info') }}
+    {{ ui.stat(s.unchanged, 'Inchangés') }}
+    {{ ui.stat(s.removed + s.inaccessible, 'Potentiellement retirés', s.removed + s.inaccessible > 0 ? 'stat-warning' : '') }}
+</div>
+
+<div class="callout callout-success">
+    <strong>Garanties :</strong> les titres et textes éditoriaux, le classement des tickets existants et les sections ne seront pas modifiés. Seules les métadonnées Jira des tickets (résumé, statut, priorité, composants…) sont mises à jour.
+</div>
+
+<div class="grid grid-2">
+    <section class="card">
+        <h2>Nouveaux tickets ({{ plan.new|length }})</h2>
+        {% for row in plan.new %}
+            <div class="row-item">
+                <div class="row-main"><code>{{ row.issue.key }}</code> {{ row.issue.summary }} <span class="badge badge-neutral">{{ row.issue.issueType }}</span></div>
+                <div class="row-side small">→ {{ row.section ? row.section.title : row.plan.title ~ ' (nouvelle section)' }}</div>
+            </div>
+        {% else %}<p class="muted small">Aucun.</p>{% endfor %}
+    </section>
+    <section class="card">
+        <h2>Métadonnées actualisées ({{ plan.updated|length }})</h2>
+        {% for row in plan.updated %}
+            <div class="row-item"><div class="row-main"><code>{{ row.ticket.jiraKey }}</code> {{ row.issue.summary }}</div><div class="row-side small muted">{{ row.changes|join(', ') }}</div></div>
+        {% else %}<p class="muted small">Aucune.</p>{% endfor %}
+    </section>
+</div>
+
+{% if plan.hasEditorialImpact or plan.epicChanges is not empty %}
+<section class="card card-alert">
+    <h2>Changements à impact éditorial</h2>
+    {% if plan.removedFromVersion is not empty %}
+        <h3>Tickets qui ne portent plus la version ({{ plan.removedFromVersion|length }})</h3>
+        <ul>{% for row in plan.removedFromVersion %}<li><code>{{ row.ticket.jiraKey }}</code> {{ row.ticket.summary }} — section « {{ row.ticket.section ? row.ticket.section.title : 'Non classés' }} » (versions actuelles : {{ row.issue.fixVersions|map(v => v.name)|join(', ') ?: 'aucune' }})</li>{% endfor %}</ul>
+    {% endif %}
+    {% if plan.inaccessible is not empty %}
+        <h3>Tickets introuvables ou inaccessibles ({{ plan.inaccessible|length }})</h3>
+        <ul>{% for t in plan.inaccessible %}<li><code>{{ t.jiraKey }}</code> {{ t.summary }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if plan.newSections is not empty %}
+        <h3>Sections proposées pour les nouveaux tickets ({{ plan.newSections|length }})</h3>
+        <ul>{% for p in plan.newSections %}<li>{{ p.title }} {{ ui.category(p.category) }}</li>{% endfor %}</ul>
+    {% endif %}
+    {% if plan.epicChanges is not empty %}
+        <h3>Epic modifié dans Jira ({{ plan.epicChanges|length }})</h3>
+        <p class="small muted">Information uniquement : le classement manuel actuel est conservé.</p>
+        <ul>{% for c in plan.epicChanges %}<li><code>{{ c.ticket.jiraKey }}</code> : {{ c.from ?? 'aucun' }} → {{ c.to ?? 'aucun' }}</li>{% endfor %}</ul>
+    {% endif %}
+</section>
+{% endif %}
+
+<section class="card">
+    <h2>Appliquer</h2>
+    <form method="post" action="{{ path('release_refresh_apply', {id: release.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('release-refresh-' ~ release.id) }}">
+        <label class="check"><input type="checkbox" name="create_sections" value="1" checked> <span>Créer les sections proposées (sinon les nouveaux tickets vont dans « Non classés »)</span></label>
+        <label class="check"><input type="checkbox" name="detach_removed" value="1"> <span>Détacher de leur section les tickets retirés ou inaccessibles (sinon ils restent en place, signalés)</span></label>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Appliquer l'actualisation</button>
+            <a class="btn btn-ghost" href="{{ path('release_show', {id: release.id}) }}">Annuler</a>
+        </div>
+    </form>
+</section>
+{% endif %}
+{% endblock %}

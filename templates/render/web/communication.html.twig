@@ -1,0 +1,60 @@
+{% import 'render/web/_macros.html.twig' as m %}
+{% set highlights = doc.sections|filter(s => s.category.value != 'fix') %}
+{% set fixes = doc.sections|filter(s => s.category.value == 'fix') %}
+<article class="rn-doc rn-format-communication">
+    <header class="rn-hero rn-hero-com">
+        <div class="rn-kicker">{{ doc.project.name }} · Nouveautés</div>
+        <h1>{{ doc.title }}</h1>
+        {% if doc.release.releaseDate %}<p class="rn-hero-date">{{ doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') ? 'Disponible depuis le' : 'Mise à disposition prévue le' }} {{ doc.release.releaseDate|date('d/m/Y') }}</p>{% endif %}
+    </header>
+
+    {% if doc.intro %}<section class="rn-intro rn-intro-com">{{ doc.intro|rn_text }}</section>{% endif %}
+
+    {% if highlights is not empty %}
+    <section class="rn-group">
+        <h2 class="rn-group-title">Les nouveautés</h2>
+        <div class="rn-cards">
+            {% for s in highlights %}
+                <div class="rn-card rn-card-com">
+                    <div class="rn-card-icon" aria-hidden="true">{{ s.category.icon }}</div>
+                    <h3>{{ s.title }}</h3>
+                    {% if s.content %}<div class="rn-text">{{ s.content|rn_text }}</div>{% endif %}
+                    {% if s.section.impact %}<div class="rn-benefit"><strong>Ce qui change pour vous</strong>{{ s.section.impact|rn_text }}</div>{% endif %}
+                    {{ m.links(s.links, 'En savoir plus') }}
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if fixes is not empty %}
+    <section class="rn-group">
+        <h2 class="rn-group-title">Corrections</h2>
+        <ul class="rn-fix-list">
+            {% for s in fixes %}
+                <li><strong>{{ s.title }}</strong>{% if s.content %}{{ s.content|rn_text }}{% endif %}</li>
+            {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
+
+    {% if doc.pendingSections is not empty %}
+    <section class="rn-box rn-box-neutral rn-box-large">
+        <div class="rn-box-title">En cours de finalisation</div>
+        <p>Les éléments suivants font partie de cette version mais leur mise à disposition reste à confirmer :</p>
+        <ul>{% for s in doc.pendingSections %}<li>{{ s.title }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    {% if doc.sections is empty and doc.pendingSections is empty %}<p class="rn-empty">Aucune section n'est visible dans ce format.</p>{% endif %}
+
+    {% if doc.actions is not empty %}
+    <section class="rn-box rn-box-action rn-box-large">
+        <div class="rn-box-title">Ce que vous devez faire</div>
+        <ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    {{ m.links(doc.links) }}
+    {{ m.footer(doc) }}
+</article>

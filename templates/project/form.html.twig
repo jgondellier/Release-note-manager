@@ -1,0 +1,42 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ is_new ? 'Nouveau projet' : 'Modifier ' ~ project.name }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('project_index') }}">Projets</a> › {{ is_new ? 'Nouveau' : project.name }}{% endblock %}
+
+{% block body %}
+<div class="page-header"><h1>{{ is_new ? 'Nouveau projet' : 'Modifier « ' ~ project.name ~ ' »' }}</h1></div>
+
+{{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+<div class="grid grid-2">
+    <section class="card">
+        <h2>Identité</h2>
+        {{ form_row(form.name) }}
+        {{ form_row(form.code) }}
+        {{ form_row(form.description) }}
+        {{ form_row(form.active) }}
+    </section>
+    <section class="card">
+        <h2>Jira</h2>
+        {{ form_row(form.jiraConnection) }}
+        {{ form_row(form.jiraProjectKey) }}
+        <p class="small muted">Les tickets importés sont ceux de ce projet portant la Fix Version choisie.</p>
+    </section>
+    <section class="card">
+        <h2>Confluence Cloud</h2>
+        {{ form_row(form.confluenceCloudConnection) }}
+        {{ form_row(form.confluenceCloudSpaceKey) }}
+        {{ form_row(form.confluenceCloudParentPageId) }}
+    </section>
+    <section class="card">
+        <h2>Confluence Server / Data Center</h2>
+        {{ form_row(form.confluenceServerConnection) }}
+        {{ form_row(form.confluenceServerSpaceKey) }}
+        {{ form_row(form.confluenceServerParentPageId) }}
+    </section>
+</div>
+<div class="form-actions sticky-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    <a class="btn btn-ghost" href="{{ is_new ? path('project_index') : path('project_show', {id: project.id}) }}">Annuler</a>
+</div>
+{{ form_end(form) }}
+{% endblock %}

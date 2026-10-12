@@ -1,0 +1,88 @@
+{% import 'render/web/_macros.html.twig' as m %}
+<article class="rn-doc rn-format-it">
+    <header class="rn-hero">
+        <div class="rn-kicker">Release note IT interne · {{ doc.project.name }}</div>
+        <h1>{{ doc.title }}</h1>
+        <div class="rn-chips">
+            <span class="rn-chip">Version {% if doc.jiraVersionUrl %}<a href="{{ doc.jiraVersionUrl }}" target="_blank" rel="noopener noreferrer">{{ doc.release.jiraVersionName }}</a>{% else %}{{ doc.release.jiraVersionName }}{% endif %}</span>
+            {% if doc.release.releaseDate %}<span class="rn-chip">Mise en production : {{ doc.release.releaseDate|date('d/m/Y') }}</span>{% endif %}
+            <span class="rn-chip">{{ doc.ticketCount }} ticket(s)</span>
+            <span class="rn-chip">Version Jira {{ doc.release.jiraVersionReleased ? 'livrée' : 'non livrée' }}</span>
+        </div>
+    </header>
+
+    {% if doc.intro %}<section class="rn-intro">{{ doc.intro|rn_text }}</section>{% endif %}
+
+    {% if doc.typeStats is not empty or doc.components is not empty %}
+    <section class="rn-overview">
+        <div>
+            <h4>Périmètre</h4>
+            <ul class="rn-stats">{% for type, count in doc.typeStats %}<li><strong>{{ count }}</strong> {{ type }}</li>{% endfor %}</ul>
+        </div>
+        {% if doc.components is not empty %}
+        <div>
+            <h4>Composants concernés</h4>
+            <div class="rn-tags">{% for c in doc.components %}<span class="rn-tag">{{ c }}</span>{% endfor %}</div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% if doc.sections|length > 1 %}
+    <nav class="rn-toc" aria-label="Sommaire">
+        <h4>Sommaire</h4>
+        <ol>{% for s in doc.sections %}<li>{{ s.title }}</li>{% endfor %}</ol>
+    </nav>
+    {% endif %}
+
+    {% for s in doc.sections %}
+    <section class="rn-section">
+        <div class="rn-section-head">
+            <h2>{{ s.title }}</h2>
+            {{ m.category(s.category) }}
+            {% if s.section.sourceType.value == 'epic' %}<span class="rn-badge rn-badge-ref">Epic {{ s.section.sourceKey }}</span>{% endif %}
+        </div>
+        {% if s.section.audience %}<p class="rn-audience">Audience : {{ s.section.audience }}</p>{% endif %}
+        {% if s.section.description %}<div class="rn-text">{{ s.section.description|rn_text }}</div>{% endif %}
+        {% if s.content %}<div class="rn-text"><h4>Description technique</h4>{{ s.content|rn_text }}</div>{% endif %}
+        <div class="rn-boxes">
+            {{ m.box('info', 'Impacts', s.section.impact) }}
+            {{ m.box('action', 'Procédure / action', s.section.actionRequired) }}
+            {{ m.box('warning', 'Risques et points de vigilance', s.section.risks) }}
+            {{ m.box('success', 'Tests et validations', s.section.validation) }}
+        </div>
+        {% if s.tickets is not empty %}
+        <div class="rn-table-wrap">
+            <table class="rn-table">
+                <thead><tr><th>Clé</th><th>Type</th><th>Résumé</th><th>Statut</th><th>Priorité</th><th>Composants</th></tr></thead>
+                <tbody>
+                {% for t in s.tickets %}
+                    <tr>
+                        <td class="rn-nowrap"><a href="{{ t.jiraUrl }}" target="_blank" rel="noopener noreferrer">{{ t.jiraKey }}</a></td>
+                        <td>{{ t.issueType }}</td>
+                        <td>{{ t.summary }}</td>
+                        <td><span class="rn-status{{ t.done ? ' is-done' }}">{{ t.status }}</span></td>
+                        <td>{{ t.priority }}</td>
+                        <td>{{ t.components|join(', ') }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {{ m.links(s.links) }}
+    </section>
+    {% else %}
+        <p class="rn-empty">Aucune section n'est visible dans ce format.</p>
+    {% endfor %}
+
+    {% if doc.actions is not empty %}
+    <section class="rn-section rn-actions">
+        <h2>Actions et procédures à prévoir</h2>
+        <ul>{% for a in doc.actions %}<li><strong>{{ a.title }}</strong>{{ a.text|rn_text }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    {{ m.links(doc.links) }}
+    {{ m.footer(doc) }}
+</article>

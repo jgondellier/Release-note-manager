@@ -1,0 +1,52 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Publier — {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Publication{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Publier sur Confluence</h1>
+        <p class="muted">Sélectionnez les formats et les instances. Chaque cible est publiée indépendamment : un échec n'empêche pas les autres.</p>
+    </div>
+    <div class="actions"><a class="btn btn-ghost" href="{{ path('publication_history', {id: release.id}) }}">Historique</a></div>
+</div>
+
+{% if release.unassignedTickets is not empty %}
+    <div class="alert alert-warning">{{ release.unassignedTickets|length }} ticket(s) non classé(s) ne seront publiés dans aucun format.</div>
+{% endif %}
+
+<form method="post" action="{{ path('publication_confirm', {id: release.id}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('publication-select-' ~ release.id) }}">
+    <div class="target-grid">
+        {% for row in rows %}
+            <label class="target-card{{ row.available ? '' : ' is-disabled' }}">
+                <input type="checkbox" name="targets[]" value="{{ row.key }}"{{ row.available ? '' : ' disabled' }}{{ row.available and (row.publication is null or row.outdated or row.publication.status.value == 'failed') ? ' checked' }}>
+                <div class="target-body">
+                    <div class="target-title"><strong>{{ row.format.label }}</strong> → {{ row.target.label }}</div>
+                    {% if row.available %}
+                        <div class="small muted">{{ row.connectionName }} · espace {{ row.spaceKey }}</div>
+                        <div class="small">Page : « {{ row.pageTitle }} »</div>
+                        <div class="target-status">
+                            {% if row.publication %}
+                                {{ ui.publication_status(row.publication.status) }}
+                                {% if row.outdated %}{{ ui.badge('Modifiée depuis la publication', 'warning') }}{% elseif row.publication.status.value == 'success' %}{{ ui.badge('À jour', 'success') }}{% endif %}
+                                {% if row.publication.confluencePageUrl %}<a class="small" href="{{ row.publication.confluencePageUrl }}" target="_blank" rel="noopener noreferrer">Voir la page ↗</a>{% endif %}
+                            {% else %}
+                                {{ ui.badge('Jamais publiée') }}
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="small muted">{{ row.unavailableReason }}</div>
+                    {% endif %}
+                </div>
+            </label>
+        {% endfor %}
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Vérifier avant publication →</button>
+        <a class="btn btn-ghost" href="{{ path('release_preview', {id: release.id, format: 'it'}) }}">Prévisualiser</a>
+    </div>
+</form>
+{% endblock %}

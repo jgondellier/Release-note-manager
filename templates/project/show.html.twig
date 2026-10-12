@@ -1,0 +1,69 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}{{ project.name }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('project_index') }}">Projets</a> › {{ project.name }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>{{ project.name }} <span class="badge badge-neutral">{{ project.code }}</span></h1>
+        {% if project.description %}<p class="muted">{{ project.description }}</p>{% endif %}
+    </div>
+    <div class="actions">
+        {% if project.active %}<a class="btn btn-primary" href="{{ path('release_new_versions', {id: project.id}) }}">＋ Release note</a>{% endif %}
+        {{ ui.post_button(path('project_check', {id: project.id}), 'project-check-' ~ project.id, 'Valider la configuration', 'secondary') }}
+        <a class="btn btn-secondary" href="{{ path('project_edit', {id: project.id}) }}">Modifier</a>
+        {{ ui.post_button(path('project_toggle', {id: project.id}), 'project-toggle-' ~ project.id, project.active ? 'Désactiver' : 'Réactiver', 'ghost', project.active ? 'Désactiver ce projet ?' : null) }}
+    </div>
+</div>
+
+<div class="grid grid-3">
+    <section class="card">
+        <h2>Jira</h2>
+        <dl class="dl">
+            <dt>Connexion</dt><dd>{% if project.jiraConnection %}<a href="{{ path('connection_show', {id: project.jiraConnection.id}) }}">{{ project.jiraConnection.name }}</a>{% else %}—{% endif %}</dd>
+            <dt>Clé projet</dt><dd>{{ project.jiraProjectKey }}</dd>
+        </dl>
+    </section>
+    {% for target in ['cloud', 'server'] %}
+        {% set conn = target == 'cloud' ? project.confluenceCloudConnection : project.confluenceServerConnection %}
+        <section class="card">
+            <h2>Confluence {{ target == 'cloud' ? 'Cloud' : 'Server / DC' }}</h2>
+            {% if conn %}
+            <dl class="dl">
+                <dt>Connexion</dt><dd><a href="{{ path('connection_show', {id: conn.id}) }}">{{ conn.name }}</a></dd>
+                <dt>Espace</dt><dd>{{ target == 'cloud' ? project.confluenceCloudSpaceKey : project.confluenceServerSpaceKey }}</dd>
+                {% set parent_page = target == 'cloud' ? project.confluenceCloudParentPageId : project.confluenceServerParentPageId %}
+                <dt>Page parente</dt><dd>{{ parent_page ?: 'Racine de l\'espace' }}</dd>
+            </dl>
+            {% else %}
+                <p class="muted">Non configuré : cette cible sera ignorée à la publication.</p>
+            {% endif %}
+        </section>
+    {% endfor %}
+</div>
+
+<section class="card">
+    <h2>Validation de configuration</h2>
+    {% if project.lastCheckResult is null %}
+        <p class="muted">Jamais vérifiée. Cliquez sur « Valider la configuration » pour tester Jira, les espaces et les pages parentes.</p>
+    {% else %}
+        <p class="small muted">Dernière vérification : {{ project.lastCheckedAt|date('d/m/Y H:i') }}</p>
+        <ul class="check-list">
+            {% for label, check in project.lastCheckResult %}
+                <li class="{{ check.ok ? 'ok' : 'ko' }}"><span class="check-icon" aria-hidden="true">{{ check.ok ? '✔' : '✖' }}</span> <strong>{{ label }}</strong> — {{ check.message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+
+<section class="card">
+    <div class="card-header"><h2>Release notes du projet</h2></div>
+    {% for release in releases %}
+        {% include 'release/_row.html.twig' with {release: release} %}
+    {% else %}
+        {{ ui.empty('Aucune release note pour ce projet') }}
+    {% endfor %}
+</section>
+{% endblock %}

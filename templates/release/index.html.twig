@@ -1,0 +1,56 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Release notes{% endblock %}
+{% block breadcrumbs %}Release notes{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div><h1>Release notes</h1></div>
+    <div class="actions"><a class="btn btn-primary" href="{{ path('release_new') }}">＋ Nouvelle release note</a></div>
+</div>
+
+<form method="get" class="filters card">
+    <div class="field">
+        <label for="f-project">Projet</label>
+        <select id="f-project" name="project">
+            <option value="">Tous</option>
+            {% for p in projects %}<option value="{{ p.id }}"{{ current_project and current_project.id == p.id ? ' selected' }}>{{ p.name }}</option>{% endfor %}
+        </select>
+    </div>
+    <div class="field">
+        <label for="f-status">Statut</label>
+        <select id="f-status" name="status">
+            <option value="">Tous (hors archivées)</option>
+            {% for s in enum_cases('App\\Enum\\ReleaseStatus') %}<option value="{{ s.value }}"{{ current_status == s ? ' selected' }}>{{ s.label }}</option>{% endfor %}
+        </select>
+    </div>
+    <label class="check"><input type="checkbox" name="archived" value="1"{{ archived ? ' checked' }}> <span>Inclure les archivées</span></label>
+    <button class="btn btn-secondary" type="submit">Filtrer</button>
+</form>
+
+<section class="card">
+    {% if releases is empty %}
+        {{ ui.empty('Aucune release note ne correspond', null, path('release_new'), 'Créer une release note') }}
+    {% else %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Titre</th><th>Projet</th><th>Version Jira</th><th>Date</th><th>Tickets</th><th>Statut</th><th>Mise à jour</th></tr></thead>
+            <tbody>
+            {% for r in releases %}
+                <tr>
+                    <td><a href="{{ path('release_show', {id: r.id}) }}"><strong>{{ r.title }}</strong></a></td>
+                    <td>{{ r.project.name }}</td>
+                    <td>{{ r.jiraVersionName }}</td>
+                    <td class="nowrap">{{ r.releaseDate ? r.releaseDate|date('d/m/Y') : '—' }}</td>
+                    <td>{{ r.tickets|length }}</td>
+                    <td>{{ ui.release_status(r.status) }}</td>
+                    <td class="nowrap small muted">{{ r.updatedAt|date('d/m/Y H:i') }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

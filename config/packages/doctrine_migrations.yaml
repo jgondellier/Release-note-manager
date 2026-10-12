@@ -1,0 +1,7 @@
+doctrine_migrations:
+    migrations_paths:
+        'DoctrineMigrations': '%kernel.project_dir%/migrations'
+    enable_profiler: false
+    # Les migrations sont la source de vérité du schéma MySQL.
+    all_or_nothing: false
+    transactional: false

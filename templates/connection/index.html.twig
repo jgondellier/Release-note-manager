@@ -1,0 +1,46 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Connexions{% endblock %}
+{% block breadcrumbs %}Administration › Connexions{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Connexions Jira et Confluence</h1>
+        <p class="muted">Instances Cloud et Server/Data Center. Les tokens sont chiffrés en base et ne sont jamais réaffichés.</p>
+    </div>
+    <div class="actions"><a class="btn btn-primary" href="{{ path('connection_new') }}">＋ Nouvelle connexion</a></div>
+</div>
+
+{% if not encryption_ready %}
+    <div class="alert alert-danger">APP_ENCRYPTION_KEY absente ou invalide : les secrets ne peuvent être ni enregistrés ni utilisés.</div>
+{% endif %}
+
+<section class="card">
+    {% if connections is empty %}
+        {{ ui.empty('Aucune connexion', 'Créez au minimum une connexion Jira pour importer des tickets.', path('connection_new'), 'Créer une connexion') }}
+    {% else %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Nom</th><th>Type</th><th>URL</th><th>Authentification</th><th>État</th><th>Dernier test</th><th></th></tr></thead>
+            <tbody>
+            {% for c in connections %}
+                <tr>
+                    <td><a href="{{ path('connection_show', {id: c.id}) }}"><strong>{{ c.name }}</strong></a></td>
+                    <td>{{ ui.badge(c.provider.label, c.isJira ? 'info' : 'primary') }} {{ c.deploymentType.label }}</td>
+                    <td class="small break">{{ c.baseUrl }}</td>
+                    <td class="small">{{ c.authenticationType.label }}{% if c.username %}<br><span class="muted">{{ c.username }}</span>{% endif %}</td>
+                    <td>{{ c.active ? ui.badge('Active', 'success') : ui.badge('Inactive', 'muted') }}</td>
+                    <td>{{ ui.test_status(c) }}<br><span class="small muted">{{ c.lastTestedAt ? c.lastTestedAt|date('d/m/Y H:i') : '' }}</span></td>
+                    <td class="nowrap">{{ ui.post_button(path('connection_test', {id: c.id}), 'connection-test-' ~ c.id, 'Tester la connexion', 'secondary btn-sm', null, {_return: 'index'}) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+
+<p class="small muted">Réseau sortant : {{ http_config }}.</p>
+{% endblock %}

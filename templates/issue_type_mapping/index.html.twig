@@ -1,0 +1,41 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Types de tickets{% endblock %}
+{% block breadcrumbs %}Administration › Types de tickets{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Correspondances types de tickets → sections</h1>
+        <p class="muted">Utilisées pour regrouper les tickets <strong>sans Epic</strong> à l'import et lors des actualisations. Les règles d'un projet priment sur les règles globales. « * » désigne les types non mappés.</p>
+    </div>
+    <div class="actions"><a class="btn btn-primary" href="{{ path('mapping_new') }}">＋ Nouvelle correspondance</a></div>
+</div>
+<section class="card">
+    {% if mappings is empty %}
+        {{ ui.empty('Aucune correspondance', 'Sans règle, les tickets sans Epic sont regroupés dans « Autres changements ».', path('mapping_new'), 'Ajouter') }}
+    {% else %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Périmètre</th><th>Type Jira</th><th>Section</th><th>Catégorie</th><th>Ordre</th><th></th></tr></thead>
+            <tbody>
+            {% for m in mappings %}
+                <tr>
+                    <td>{{ m.project ? m.project.name : 'Global' }}</td>
+                    <td><code>{{ m.jiraIssueType }}</code></td>
+                    <td>{{ m.sectionTitle }}</td>
+                    <td>{{ ui.category(m.category) }}</td>
+                    <td>{{ m.position }}</td>
+                    <td class="nowrap">
+                        <a class="btn btn-sm btn-secondary" href="{{ path('mapping_edit', {id: m.id}) }}">Modifier</a>
+                        {{ ui.post_button(path('mapping_delete', {id: m.id}), 'mapping-delete-' ~ m.id, 'Supprimer', 'ghost btn-sm', 'Supprimer cette correspondance ?') }}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

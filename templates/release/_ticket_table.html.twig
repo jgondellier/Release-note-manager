@@ -1,0 +1,47 @@
+{% import '_components/ui.html.twig' as ui %}
+{% set editable = not release.archived %}
+<div class="table-wrap">
+    <table class="table table-tickets">
+        <thead>
+            <tr><th>Clé</th><th>Type</th><th>Résumé Jira</th><th>Statut</th>{% if editable %}<th class="nowrap">Classement</th>{% endif %}</tr>
+        </thead>
+        <tbody>
+        {% for t in tickets %}
+            <tr class="{{ t.syncState.value != 'active' ? 'is-flagged' }}">
+                <td class="nowrap">
+                    <a href="{{ t.jiraUrl }}" target="_blank" rel="noopener noreferrer" title="Ouvrir dans Jira"><code>{{ t.jiraKey }}</code></a>
+                    <a href="{{ path('ticket_show', {id: t.id}) }}" class="small" title="Données Jira source">ⓘ</a>
+                </td>
+                <td><span class="badge badge-neutral">{{ t.issueType }}</span></td>
+                <td>
+                    {{ t.summary }}
+                    {% if t.syncState.value != 'active' %}<br>{{ ui.badge(t.syncState.label, 'danger') }}{% endif %}
+                    {% if t.addedManually %} {{ ui.badge('Hors version', 'warning', 'Ajouté manuellement, ne porte pas la Fix Version') }}{% endif %}
+                    {% if t.components is not empty %}<div class="small muted">{{ t.components|join(', ') }}</div>{% endif %}
+                </td>
+                <td class="nowrap">{{ ui.badge(t.status ?? '?', t.done ? 'success' : 'neutral') }}</td>
+                {% if editable %}
+                <td class="nowrap ticket-actions">
+                    <form method="post" action="{{ path('ticket_move', {id: t.id}) }}" class="inline-form">
+                        <input type="hidden" name="_token" value="{{ ticket_token }}">
+                        <label class="sr-only" for="move-{{ t.id }}">Déplacer {{ t.jiraKey }}</label>
+                        <select id="move-{{ t.id }}" name="section_id" data-autosubmit>
+                            <option value="0"{{ current_section is null ? ' selected' }}>— Non classé —</option>
+                            {% for s in sections %}
+                                <option value="{{ s.id }}"{{ current_section and current_section.id == s.id ? ' selected' }}>{{ s.title|length > 40 ? s.title|slice(0, 39) ~ '…' : s.title }}</option>
+                            {% endfor %}
+                        </select>
+                        <noscript><button class="btn btn-sm btn-ghost">OK</button></noscript>
+                    </form>
+                    {% if current_section %}
+                        <form method="post" action="{{ path('ticket_position', {id: t.id, direction: 'up'}) }}" class="inline-form"><input type="hidden" name="_token" value="{{ ticket_token }}"><button class="btn btn-sm btn-ghost" title="Monter" aria-label="Monter {{ t.jiraKey }}">↑</button></form>
+                        <form method="post" action="{{ path('ticket_position', {id: t.id, direction: 'down'}) }}" class="inline-form"><input type="hidden" name="_token" value="{{ ticket_token }}"><button class="btn btn-sm btn-ghost" title="Descendre" aria-label="Descendre {{ t.jiraKey }}">↓</button></form>
+                    {% endif %}
+                    <form method="post" action="{{ path('ticket_exclude', {id: t.id}) }}" class="inline-form" data-confirm="Retirer {{ t.jiraKey }} de la release ?"><input type="hidden" name="_token" value="{{ ticket_token }}"><button class="btn btn-sm btn-ghost text-danger" title="Retirer de la release">✕</button></form>
+                </td>
+                {% endif %}
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>

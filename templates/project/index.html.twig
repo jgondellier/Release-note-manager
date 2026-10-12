@@ -1,0 +1,35 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Projets{% endblock %}
+{% block breadcrumbs %}Administration › Projets{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div><h1>Projets</h1><p class="muted">Chaque projet relie une clé Jira à un espace Confluence Cloud et/ou Server.</p></div>
+    <div class="actions"><a class="btn btn-primary" href="{{ path('project_new') }}">＋ Nouveau projet</a></div>
+</div>
+<section class="card">
+    {% if projects is empty %}
+        {{ ui.empty('Aucun projet', null, path('project_new'), 'Créer un projet') }}
+    {% else %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Projet</th><th>Jira</th><th>Confluence Cloud</th><th>Confluence Server/DC</th><th>État</th><th>Configuration</th></tr></thead>
+            <tbody>
+            {% for p in projects %}
+                <tr>
+                    <td><a href="{{ path('project_show', {id: p.id}) }}"><strong>{{ p.name }}</strong></a> <span class="badge badge-neutral">{{ p.code }}</span></td>
+                    <td class="small">{{ p.jiraProjectKey }}<br><span class="muted">{{ p.jiraConnection ? p.jiraConnection.name : '—' }}</span></td>
+                    <td class="small">{{ p.confluenceCloudSpaceKey ?? '—' }}<br><span class="muted">{{ p.confluenceCloudConnection ? p.confluenceCloudConnection.name : '' }}</span></td>
+                    <td class="small">{{ p.confluenceServerSpaceKey ?? '—' }}<br><span class="muted">{{ p.confluenceServerConnection ? p.confluenceServerConnection.name : '' }}</span></td>
+                    <td>{{ p.active ? ui.badge('Actif', 'success') : ui.badge('Inactif', 'muted') }}</td>
+                    <td>{% if p.lastCheckedAt is null %}{{ ui.badge('Non vérifiée') }}{% elseif p.hasConfigurationErrors %}{{ ui.badge('Erreurs', 'danger') }}{% else %}{{ ui.badge('OK', 'success') }}{% endif %}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

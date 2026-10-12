@@ -1,0 +1,5 @@
+framework:
+    cache:
+        # Cache applicatif sur fichiers (compatible EasyPHP sans extension supplémentaire).
+        app: cache.adapter.filesystem
+        system: cache.adapter.system

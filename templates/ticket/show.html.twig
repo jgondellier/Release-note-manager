@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}{{ ticket.jiraKey }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › {{ ticket.jiraKey }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1><code>{{ ticket.jiraKey }}</code> {{ ticket.summary }}</h1>
+        <p>{{ ui.badge(ticket.issueType) }} {{ ui.badge(ticket.status ?? '?', ticket.done ? 'success' : 'neutral') }} {% if ticket.syncState.value != 'active' %}{{ ui.badge(ticket.syncState.label, 'danger') }}{% endif %} {% if ticket.excluded %}{{ ui.badge('Retiré de la release', 'muted') }}{% endif %}</p>
+    </div>
+    <div class="actions">
+        <a class="btn btn-secondary" href="{{ ticket.jiraUrl }}" target="_blank" rel="noopener noreferrer">Ouvrir dans Jira ↗</a>
+        <a class="btn btn-ghost" href="{{ path('release_show', {id: release.id}) }}">← Retour</a>
+    </div>
+</div>
+<div class="grid grid-main-aside">
+    <section class="card">
+        <h2>Description Jira</h2>
+        {% if ticket.description %}<pre class="text-block">{{ ticket.description }}</pre>{% else %}<p class="muted">Aucune description.</p>{% endif %}
+        <p class="small muted">Lecture seule : la description Jira sert d'aide à la rédaction et n'est jamais publiée automatiquement.</p>
+    </section>
+    <section class="card">
+        <h2>Métadonnées</h2>
+        <dl class="dl">
+            <dt>Identifiant</dt><dd>{{ ticket.jiraIssueId }}</dd>
+            <dt>Priorité</dt><dd>{{ ticket.priority ?? '—' }}</dd>
+            <dt>Epic</dt><dd>{{ ticket.epicKey ? ticket.epicKey ~ ' — ' ~ ticket.epicName : '—' }}</dd>
+            <dt>Parent</dt><dd>{{ ticket.parentKey ?? '—' }}</dd>
+            <dt>Composants</dt><dd>{{ ticket.components|join(', ') ?: '—' }}</dd>
+            <dt>Labels</dt><dd>{{ ticket.labels|join(', ') ?: '—' }}</dd>
+            <dt>Fix Versions</dt><dd>{{ ticket.fixVersionNames|join(', ') ?: '—' }}</dd>
+            <dt>Section</dt><dd>{{ ticket.section ? ticket.section.title : 'Non classé' }}</dd>
+            <dt>Modifié dans Jira</dt><dd>{{ ticket.jiraUpdatedAt ? ticket.jiraUpdatedAt|date('d/m/Y H:i') : '—' }}</dd>
+            <dt>Dernière synchro</dt><dd>{{ ticket.lastSyncedAt ? ticket.lastSyncedAt|date('d/m/Y H:i') : '—' }}</dd>
+        </dl>
+        {% if ticket.rawData %}
+            <details><summary class="small">Données de diagnostic</summary><pre class="code small">{{ ticket.rawData|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES')) }}</pre></details>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

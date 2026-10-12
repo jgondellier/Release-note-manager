@@ -1,0 +1,217 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}{{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_index') }}">Release notes</a> › <a href="{{ path('project_show', {id: release.project.id}) }}">{{ release.project.name }}</a> › {{ release.jiraVersionName }}{% endblock %}
+
+{% block body %}
+{% set editable = not release.archived %}
+{% set ticket_token = csrf_token('ticket-ops-' ~ release.id) %}
+
+<div class="page-header">
+    <div>
+        <h1>{{ release.title }}</h1>
+        <p class="header-meta">
+            {{ ui.release_status(release.status) }}
+            <span>{{ release.project.name }}</span>
+            <span>· Version Jira <strong>{{ release.jiraVersionName }}</strong> {{ release.jiraVersionReleased ? ui.badge('livrée', 'success') : ui.badge('non livrée', 'info') }}</span>
+            {% if release.releaseDate %}<span>· Mise en production : {{ release.releaseDate|date('d/m/Y') }}</span>{% endif %}
+        </p>
+    </div>
+    <div class="actions">
+        {% if editable %}
+            <a class="btn btn-secondary" href="{{ path('release_edit', {id: release.id}) }}">Informations et introductions</a>
+            <a class="btn btn-secondary" href="{{ path('release_refresh', {id: release.id}) }}">⟳ Actualiser depuis Jira</a>
+        {% endif %}
+        <a class="btn btn-secondary" href="{{ path('release_preview', {id: release.id, format: 'it'}) }}">Prévisualiser</a>
+        {% if editable %}<a class="btn btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}
+        <details class="dropdown">
+            <summary class="btn btn-ghost" aria-label="Autres actions">⋯</summary>
+            <div class="dropdown-menu">
+                <a href="{{ path('publication_history', {id: release.id}) }}">Historique de publication</a>
+                {% if editable %}<a href="{{ path('release_duplicate', {id: release.id}) }}">Dupliquer vers une autre version</a>{% endif %}
+                {% if editable %}
+                    {{ ui.post_button(path('release_archive', {id: release.id}), 'release-archive-' ~ release.id, 'Archiver', 'link', 'Archiver cette release ? Elle passera en lecture seule.') }}
+                {% else %}
+                    {{ ui.post_button(path('release_unarchive', {id: release.id}), 'release-unarchive-' ~ release.id, 'Désarchiver', 'link') }}
+                {% endif %}
+                <a href="{{ path('release_delete', {id: release.id}) }}" class="text-danger">Supprimer…</a>
+            </div>
+        </details>
+    </div>
+</div>
+
+{% if release.archived %}
+    <div class="alert alert-info">Release archivée le {{ release.archivedAt|date('d/m/Y') }} : lecture seule. Désarchivez-la pour la modifier ou la republier.</div>
+{% endif %}
+{% if release.lastSyncError %}
+    <div class="alert alert-danger"><strong>Dernière synchronisation Jira en échec :</strong> {{ release.lastSyncError }}</div>
+{% endif %}
+{% if release.flaggedTickets is not empty %}
+    <div class="alert alert-warning"><strong>{{ release.flaggedTickets|length }} ticket(s) signalé(s)</strong> par la dernière actualisation (retirés de la version ou inaccessibles). Ils restent affichés tant que vous ne les déplacez ou retirez pas.</div>
+{% endif %}
+
+<div class="summary-strip">
+    <div><span class="muted small">Sections</span><strong>{{ sections|length }}</strong></div>
+    <div><span class="muted small">Tickets</span><strong>{{ release.tickets|length - release.excludedTickets|length }}</strong></div>
+    <div><span class="muted small">Non classés</span><strong>{{ release.unassignedTickets|length }}</strong></div>
+    <div>
+        <span class="muted small">Dernière synchro Jira</span>
+        <strong>{{ release.lastSyncedAt ? release.lastSyncedAt|date('d/m/Y H:i') : '—' }}</strong>
+        {% if release.lastSyncReport %}
+            {% set r = release.lastSyncReport %}
+            <span class="small muted">+{{ r.added ?? 0 }} / ~{{ r.updated ?? 0 }} / ={{ r.unchanged ?? 0 }} / −{{ (r.removed ?? 0) + (r.inaccessible ?? 0) }}</span>
+        {% endif %}
+    </div>
+    {% if editable and release.status.value in ['draft', 'in_preparation', 'ready'] %}
+    <div>
+        <form method="post" action="{{ path('release_status', {id: release.id}) }}" class="inline-form">
+            <input type="hidden" name="_token" value="{{ csrf_token('release-status-' ~ release.id) }}">
+            <label class="muted small" for="quick-status">Statut</label>
+            <select id="quick-status" name="status" data-autosubmit>
+                {% for s in enum('App\\Enum\\ReleaseStatus').editorialChoices() %}
+                    <option value="{{ s.value }}"{{ s == release.status ? ' selected' }}>{{ s.label }}</option>
+                {% endfor %}
+            </select>
+            <noscript><button class="btn btn-sm btn-secondary">OK</button></noscript>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="editor-toolbar">
+    <div class="tabs" role="tablist" data-format-tabs>
+        {% for f in formats %}
+            <button type="button" role="tab" class="tab{{ loop.first ? ' active' }}" data-format="{{ f.value }}" aria-selected="{{ loop.first ? 'true' : 'false' }}">{{ f.label }}</button>
+        {% endfor %}
+    </div>
+    <div class="toolbar-right">
+        {% for f in formats %}
+            <a class="btn btn-sm btn-ghost" data-format-only="{{ f.value }}"{{ not loop.first ? ' hidden' }} href="{{ path('release_preview', {id: release.id, format: f.value}) }}">Aperçu {{ f.label }} →</a>
+        {% endfor %}
+        {% if editable %}<a class="btn btn-sm btn-primary" href="{{ path('section_new', {id: release.id}) }}">＋ Section manuelle</a>{% endif %}
+    </div>
+</div>
+
+{% if sections is empty %}
+    {{ ui.empty('Aucune section', 'Ajoutez une section manuelle ou actualisez depuis Jira.', editable ? path('section_new', {id: release.id}) : null, 'Ajouter une section') }}
+{% endif %}
+
+<div class="section-list"{% if editable %} data-sortable data-reorder-url="{{ path('section_reorder', {id: release.id}) }}" data-reorder-token="{{ csrf_token('section-reorder-' ~ release.id) }}"{% endif %}>
+{% for section in sections %}
+    <article class="section-card" id="section-{{ section.id }}" data-id="{{ section.id }}">
+        <header class="section-head">
+            {% if editable %}<span class="drag-handle" title="Glisser pour réordonner" aria-hidden="true">⋮⋮</span>{% endif %}
+            <div class="section-title">
+                <h2>
+                    <span data-format-only="it">{{ section.title }}</span>
+                    <span data-format-only="functional" hidden>{{ section.titleFor(formats[1]) }}</span>
+                    <span data-format-only="communication" hidden>{{ section.titleFor(formats[2]) }}</span>
+                </h2>
+                <div class="section-badges">
+                    {{ ui.category(section.category) }}
+                    {% if section.sourceType.value == 'epic' %}{{ ui.badge('Epic ' ~ section.sourceKey, 'neutral', 'Titre initial issu de l\'Epic, modifiable') }}
+                    {% elseif section.sourceType.value == 'manual' %}{{ ui.badge('Manuelle', 'neutral') }}
+                    {% else %}{{ ui.badge('Par type', 'neutral') }}{% endif %}
+                    <span class="vis{{ section.visibleIt ? ' on' }}" title="Visible en IT">IT</span>
+                    <span class="vis{{ section.visibleFunctional ? ' on' }}" title="Visible en Fonctionnel">F</span>
+                    <span class="vis{{ section.visibleCommunication ? ' on' }}" title="Visible en Communication">C</span>
+                    {% if section.delivered %}{{ ui.badge('Livraison confirmée', 'success') }}{% else %}{{ ui.badge('Livraison non confirmée', 'warning', 'Tickets non terminés et confirmation manuelle absente') }}{% endif %}
+                </div>
+            </div>
+            {% if editable %}
+            <div class="section-actions">
+                {{ ui.post_button(path('section_move', {id: section.id, direction: 'up'}), 'section-move-' ~ section.id, '↑', 'ghost btn-sm', null) }}
+                {{ ui.post_button(path('section_move', {id: section.id, direction: 'down'}), 'section-move-' ~ section.id, '↓', 'ghost btn-sm', null) }}
+                <a class="btn btn-sm btn-secondary" href="{{ path('section_edit', {id: section.id}) }}">Modifier le wording</a>
+                {{ ui.post_button(path('section_delete', {id: section.id}), 'section-delete-' ~ section.id, 'Supprimer', 'ghost btn-sm text-danger', 'Supprimer la section « ' ~ section.title ~ ' » ? Ses ' ~ section.tickets|length ~ ' ticket(s) seront déplacés dans « Non classés ».') }}
+            </div>
+            {% endif %}
+        </header>
+
+        <div class="section-body">
+            <div data-format-only="it">
+                {% if section.description %}<div class="rn-text">{{ section.description|rn_text }}</div>{% endif %}
+                {% if section.itContent %}<div class="rn-text"><h4>Contenu technique</h4>{{ section.itContent|rn_text }}</div>{% endif %}
+                {% if section.risks %}<div class="callout callout-warning"><strong>Risques / vigilance</strong>{{ section.risks|rn_text }}</div>{% endif %}
+                {% if section.validation %}<div class="callout callout-info"><strong>Tests et validations</strong>{{ section.validation|rn_text }}</div>{% endif %}
+                {% if not section.description and not section.itContent %}<p class="placeholder">Aucun texte IT rédigé.</p>{% endif %}
+            </div>
+            <div data-format-only="functional" hidden>
+                {% if section.functionalContent %}<div class="rn-text">{{ section.functionalContent|rn_text }}</div>
+                {% elseif section.description %}<p class="placeholder">Wording fonctionnel vide : le descriptif commun sera utilisé.</p><div class="rn-text">{{ section.description|rn_text }}</div>
+                {% else %}<p class="placeholder">Aucun wording fonctionnel rédigé.</p>{% endif %}
+            </div>
+            <div data-format-only="communication" hidden>
+                {% if section.communicationContent %}<div class="rn-text">{{ section.communicationContent|rn_text }}</div>
+                {% elseif section.functionalContent or section.description %}<p class="placeholder">Wording de communication vide : le texte fonctionnel ou le descriptif sera utilisé.</p>
+                {% else %}<p class="placeholder">Aucun wording de communication rédigé.</p>{% endif %}
+            </div>
+            {% if section.impact or section.actionRequired %}
+            <div class="grid grid-2 compact">
+                {% if section.impact %}<div class="callout callout-info"><strong>Impact</strong>{{ section.impact|rn_text }}</div>{% endif %}
+                {% if section.actionRequired %}<div class="callout callout-warning"><strong>Action à effectuer</strong>{{ section.actionRequired|rn_text }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            {% set tickets = section.tickets|filter(t => not t.excluded) %}
+            {% if tickets is not empty %}
+                {% include 'release/_ticket_table.html.twig' with {tickets: tickets, current_section: section} %}
+            {% else %}
+                <p class="small muted">Aucun ticket dans cette section.</p>
+            {% endif %}
+        </div>
+    </article>
+{% endfor %}
+</div>
+
+<section class="card" id="unassigned">
+    <div class="card-header">
+        <h2>Tickets non classés <span class="badge badge-{{ release.unassignedTickets is empty ? 'neutral' : 'warning' }}">{{ release.unassignedTickets|length }}</span></h2>
+    </div>
+    <p class="small muted">Ces tickets n'apparaissent dans aucun format. Déplacez-les vers une section pour les publier.</p>
+    {% if release.unassignedTickets is not empty %}
+        {% include 'release/_ticket_table.html.twig' with {tickets: release.unassignedTickets, current_section: null} %}
+    {% endif %}
+</section>
+
+<div class="grid grid-2">
+    {% if editable %}
+    <section class="card" id="tickets">
+        <h2>Ajouter un ticket Jira</h2>
+        <form method="post" action="{{ path('ticket_add', {id: release.id}) }}" class="form-inline">
+            <input type="hidden" name="_token" value="{{ csrf_token('ticket-add-' ~ release.id) }}">
+            <div class="field">
+                <label for="add-key">Clé Jira</label>
+                <input id="add-key" type="text" name="key" placeholder="{{ release.project.jiraProjectKey }}-123" required pattern="[A-Za-z][A-Za-z0-9_]*-[0-9]+">
+            </div>
+            <div class="field">
+                <label for="add-section">Section</label>
+                <select id="add-section" name="section_id">
+                    <option value="">Automatique (Epic / type)</option>
+                    {% for s in sections %}<option value="{{ s.id }}">{{ s.title }}</option>{% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">Ajouter</button>
+        </form>
+        <p class="small muted">Un ticket ne portant pas la version {{ release.jiraVersionName }} est accepté mais signalé.</p>
+    </section>
+    {% endif %}
+    <section class="card">
+        <h2>Tickets retirés <span class="badge badge-neutral">{{ release.excludedTickets|length }}</span></h2>
+        {% for t in release.excludedTickets %}
+            <div class="row-item">
+                <div class="row-main"><code>{{ t.jiraKey }}</code> {{ t.summary }}</div>
+                {% if editable %}
+                <form method="post" action="{{ path('ticket_include', {id: t.id}) }}" class="inline-form">
+                    <input type="hidden" name="_token" value="{{ ticket_token }}">
+                    <button class="btn btn-sm btn-ghost">Réinclure</button>
+                </form>
+                {% endif %}
+            </div>
+        {% else %}
+            <p class="small muted">Aucun ticket retiré. Un ticket retiré n'est pas ré-ajouté par l'actualisation.</p>
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

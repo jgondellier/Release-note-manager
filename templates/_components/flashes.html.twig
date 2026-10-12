@@ -1,0 +1,8 @@
+{% for type, messages in app.flashes %}
+    {% for message in messages %}
+        <div class="alert alert-{{ type }}" role="{{ type == 'danger' ? 'alert' : 'status' }}">
+            <button type="button" class="alert-close" data-dismiss aria-label="Fermer">×</button>
+            <span>{{ message }}</span>
+        </div>
+    {% endfor %}
+{% endfor %}

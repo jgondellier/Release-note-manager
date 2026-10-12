@@ -1,0 +1,34 @@
+{% import 'render/confluence/_macros.xml.twig' as c %}
+{% set highlights = doc.sections|filter(s => s.category.value != 'fix') %}
+{% set fixes = doc.sections|filter(s => s.category.value == 'fix') %}
+{% set hero %}
+{% if doc.intro %}{{ doc.intro|rn_text }}{% endif %}<p><strong>Version {{ doc.release.jiraVersionName }}</strong></p>
+{% if doc.release.releaseDate %}{% set available = doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') %}<p>{{ c.status((available ? 'Disponible depuis le ' : 'Prévue le ') ~ doc.release.releaseDate|date('d/m/Y'), available ? 'Green' : 'Blue') }}</p>{% endif %}
+{% endset %}
+{{ c.panel(doc.title, hero, '#FFF7E6', '#F5A623') }}
+{% if highlights is not empty %}
+<h2>Les nouveautés</h2>
+{% for s in highlights %}
+{% set card %}
+{% if s.content %}{{ s.content|rn_text }}{% endif %}
+{% if s.section.impact %}<p><strong>Ce qui change pour vous</strong></p>{{ s.section.impact|rn_text }}{% endif %}
+{{ c.links(s.links, 'En savoir plus') }}
+{% endset %}
+{{ c.panel(s.category.icon ~ ' ' ~ s.title, card, '#FFFFFF', '#DFE1E6') }}
+{% endfor %}
+{% endif %}
+{% if fixes is not empty %}
+<h2>Corrections</h2>
+<ul>{% for s in fixes %}<li><strong>{{ s.title }}</strong>{% if s.content %}{{ s.content|rn_text }}{% endif %}</li>{% endfor %}</ul>
+{% endif %}
+{% if doc.pendingSections is not empty %}
+{% set pending %}<p>Les éléments suivants font partie de cette version mais leur mise à disposition reste à confirmer :</p><ul>{% for s in doc.pendingSections %}<li>{{ s.title }}</li>{% endfor %}</ul>{% endset %}
+{{ c.callout('info', 'En cours de finalisation', pending) }}
+{% endif %}
+{% if doc.sections is empty and doc.pendingSections is empty %}<p><em>Aucune section n'est visible dans ce format.</em></p>{% endif %}
+{% if doc.actions is not empty %}
+{% set actions %}<ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>{% endset %}
+{{ c.callout('note', 'Ce que vous devez faire', actions) }}
+{% endif %}
+{{ c.links(doc.links) }}
+{{ c.footer(doc) }}

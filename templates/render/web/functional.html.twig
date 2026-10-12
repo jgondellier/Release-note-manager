@@ -1,0 +1,52 @@
+{% import 'render/web/_macros.html.twig' as m %}
+{% set groups = doc.sectionsByCategory %}
+{% set titles = {feature: 'Évolutions fonctionnelles', fix: 'Corrections', other: 'Autres changements', technical: 'Changements techniques'} %}
+<article class="rn-doc rn-format-functional">
+    <header class="rn-hero">
+        <div class="rn-kicker">Release note fonctionnelle · {{ doc.project.name }}</div>
+        <h1>{{ doc.title }}</h1>
+        <div class="rn-chips">
+            <span class="rn-chip">Version {{ doc.release.jiraVersionName }}</span>
+            {% if doc.release.releaseDate %}<span class="rn-chip">Mise en production : {{ doc.release.releaseDate|date('d/m/Y') }}</span>{% endif %}
+        </div>
+    </header>
+
+    {% if doc.intro %}<section class="rn-intro">{{ doc.intro|rn_text }}</section>{% endif %}
+
+    <section class="rn-summary">
+        {% for key in ['feature', 'fix', 'other', 'technical'] %}
+            {% if groups[key] is defined %}<div class="rn-summary-item rn-cat-{{ key }}"><strong>{{ groups[key]|length }}</strong> {{ titles[key]|lower }}</div>{% endif %}
+        {% endfor %}
+    </section>
+
+    {% for key in ['feature', 'fix', 'other', 'technical'] %}
+        {% if groups[key] is defined %}
+        <section class="rn-group">
+            <h2 class="rn-group-title">{{ titles[key] }}</h2>
+            {% for s in groups[key] %}
+                <div class="rn-card">
+                    <h3>{{ s.title }}</h3>
+                    {% if s.section.audience %}<p class="rn-audience">Parcours concernés : {{ s.section.audience }}</p>{% endif %}
+                    {% if s.content %}<div class="rn-text">{{ s.content|rn_text }}</div>{% endif %}
+                    <div class="rn-boxes">{{ m.box('info', 'Impacts métier', s.section.impact) }}</div>
+                    {% if s.section.functionalShowTickets and s.tickets is not empty %}
+                        <ul class="rn-ticket-list">{% for t in s.tickets %}<li>{{ t.summary }}</li>{% endfor %}</ul>
+                    {% endif %}
+                    {{ m.links(s.links, 'Documentation') }}
+                </div>
+            {% endfor %}
+        </section>
+        {% endif %}
+    {% endfor %}
+    {% if doc.sections is empty %}<p class="rn-empty">Aucune section n'est visible dans ce format.</p>{% endif %}
+
+    {% if doc.actions is not empty %}
+    <section class="rn-box rn-box-action rn-box-large">
+        <div class="rn-box-title">Actions à prévoir</div>
+        <ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+
+    {{ m.links(doc.links, 'Documentation et liens utiles') }}
+    {{ m.footer(doc) }}
+</article>

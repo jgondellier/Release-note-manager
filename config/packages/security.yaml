@@ -1,0 +1,39 @@
+security:
+    # Un seul compte technique « admin », authentifié par le token ADMIN_TOKEN
+    # (variable d'environnement, jamais stockée en base). Aucun mot de passe en mémoire.
+    providers:
+        admin_provider:
+            memory:
+                users:
+                    admin: { roles: ['ROLE_ADMIN'] }
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|assets)/
+            security: false
+        main:
+            lazy: true
+            provider: admin_provider
+            custom_authenticators:
+                - App\Security\AdminTokenAuthenticator
+            entry_point: App\Security\AdminTokenAuthenticator
+            # Limitation des tentatives : 5 essais / 15 min par IP (+ limite globale par IP).
+            login_throttling:
+                max_attempts: 5
+                interval: '15 minutes'
+            logout:
+                path: app_logout
+                target: app_login
+                enable_csrf: true
+                csrf_token_id: logout
+
+    access_control:
+        - { path: ^/login$, roles: PUBLIC_ACCESS }
+        - { path: ^/, roles: ROLE_ADMIN }
+
+when@test:
+    security:
+        firewalls:
+            main:
+                login_throttling:
+                    max_attempts: 50

@@ -1,0 +1,11 @@
+{% import '_components/ui.html.twig' as ui %}
+<div class="row-item">
+    <div class="row-main">
+        <a href="{{ path('release_show', {id: release.id}) }}" class="row-title">{{ release.title }}</a>
+        <div class="small muted">{{ release.project.name }} · version {{ release.jiraVersionName }} · modifiée le {{ release.updatedAt|date('d/m/Y H:i') }}</div>
+    </div>
+    <div class="row-side">
+        {{ ui.release_status(release.status) }}
+        {% if publish_link ?? false %}<a class="btn btn-sm btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier</a>{% endif %}
+    </div>
+</div>

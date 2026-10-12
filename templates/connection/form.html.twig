@@ -1,0 +1,50 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ is_new ? 'Nouvelle connexion' : 'Modifier ' ~ connection.name }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('connection_index') }}">Connexions</a> › {{ is_new ? 'Nouvelle' : connection.name }}{% endblock %}
+
+{% block body %}
+<div class="page-header"><h1>{{ is_new ? 'Nouvelle connexion' : 'Modifier « ' ~ connection.name ~ ' »' }}</h1></div>
+
+<div class="grid grid-main-aside">
+    <section class="card">
+        {{ form_start(form, {attr: {novalidate: 'novalidate', autocomplete: 'off'}}) }}
+            {{ form_row(form.name) }}
+            <div class="grid grid-2">
+                {{ form_row(form.provider) }}
+                {{ form_row(form.deploymentType) }}
+            </div>
+            {{ form_row(form.baseUrl) }}
+            {{ form_row(form.authenticationType) }}
+            <div class="grid grid-2">
+                {{ form_row(form.username) }}
+                <div>
+                    {{ form_row(form.plainSecret) }}
+                    {% if not is_new and connection.hasSecret %}<p class="small"><span class="badge badge-success">Secret enregistré</span> <span class="muted">(chiffré, non affichable)</span></p>{% endif %}
+                </div>
+            </div>
+            <div data-show-for-provider="jira">{{ form_row(form.jiraEpicLinkField) }}</div>
+            {{ form_row(form.active) }}
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">Enregistrer</button>
+                <a class="btn btn-ghost" href="{{ is_new ? path('connection_index') : path('connection_show', {id: connection.id}) }}">Annuler</a>
+            </div>
+        {{ form_end(form) }}
+    </section>
+    <aside class="card card-muted">
+        <h2>Aide</h2>
+        <h3>Jira / Confluence Cloud</h3>
+        <ul class="small">
+            <li>URL : <code>https://votre-site.atlassian.net</code></li>
+            <li>Authentification Basic : e-mail du compte + API token (id.atlassian.com › Sécurité › Jetons d'API).</li>
+        </ul>
+        <h3>Jira / Confluence Server – Data Center</h3>
+        <ul class="small">
+            <li>URL complète, contexte inclus : <code>https://jira.interne.local</code> ou <code>https://intranet/confluence</code>.</li>
+            <li>Personal Access Token (Bearer) : profil › Jetons d'accès personnels (version 8.14+ / Confluence 7.9+).</li>
+            <li>Basic : identifiant + mot de passe, uniquement si l'instance l'autorise.</li>
+        </ul>
+        <p class="small muted">Le secret est chiffré (libsodium) avec la clé APP_ENCRYPTION_KEY du serveur.</p>
+    </aside>
+</div>
+{% endblock %}

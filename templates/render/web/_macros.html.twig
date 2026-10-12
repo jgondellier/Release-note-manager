@@ -1,0 +1,24 @@
+{% macro links(links, title = 'Liens utiles') %}
+    {% if links is not empty %}
+        <div class="rn-links">
+            <h4>{{ title }}</h4>
+            <ul>{% for l in links %}<li><a href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.label }}</a></li>{% endfor %}</ul>
+        </div>
+    {% endif %}
+{% endmacro %}
+
+{% macro box(kind, title, text) %}
+    {% if text %}
+        <div class="rn-box rn-box-{{ kind }}"><div class="rn-box-title">{{ title }}</div>{{ text|rn_text }}</div>
+    {% endif %}
+{% endmacro %}
+
+{% macro category(category) %}
+    <span class="rn-badge rn-cat-{{ category.value }}">{{ category.icon }} {{ category.label }}</span>
+{% endmacro %}
+
+{% macro footer(doc) %}
+    <footer class="rn-footer">
+        {{ doc.project.name }} · version {{ doc.release.jiraVersionName }}{% if doc.release.releaseDate %} · mise en production le {{ doc.release.releaseDate|date('d/m/Y') }}{% endif %}
+    </footer>
+{% endmacro %}

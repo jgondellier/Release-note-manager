@@ -1,0 +1,153 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Tableau de bord{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Tableau de bord</h1>
+        <p class="muted">Suivi des release notes, des publications Confluence et de la configuration.</p>
+    </div>
+    <div class="actions">
+        <a class="btn btn-primary" href="{{ path('release_new') }}">＋ Nouvelle release note</a>
+        <a class="btn btn-secondary" href="{{ path('project_index') }}">Projets</a>
+        <a class="btn btn-secondary" href="{{ path('connection_index') }}">Connexions</a>
+    </div>
+</div>
+
+{% if not encryption_ready %}
+    <div class="alert alert-danger">La clé de chiffrement <code>APP_ENCRYPTION_KEY</code> est absente ou invalide : impossible d'enregistrer ou d'utiliser les tokens Jira/Confluence. Voir le README.</div>
+{% endif %}
+{% if connection_count == 0 %}
+    <div class="alert alert-info">Première utilisation : commencez par <a href="{{ path('connection_new') }}">créer une connexion Jira</a>, puis vos connexions Confluence et enfin <a href="{{ path('project_new') }}">un projet</a>.</div>
+{% endif %}
+
+<div class="stats">
+    {{ ui.stat(projects|filter(p => p.active)|length, 'Projets actifs') }}
+    {{ ui.stat((counts.draft ?? 0) + (counts.in_preparation ?? 0), 'Brouillons en cours', 'stat-info') }}
+    {{ ui.stat(counts.ready ?? 0, 'Prêtes à publier', 'stat-primary') }}
+    {{ ui.stat(counts.partially_published ?? 0, 'Partiellement publiées', 'stat-warning') }}
+    {{ ui.stat(counts.published ?? 0, 'Publiées', 'stat-success') }}
+</div>
+
+{% set alerts = failed_publications|length + sync_errors|length + failing_connections|length + failing_projects|length %}
+{% if alerts > 0 %}
+<section class="card card-alert">
+    <h2>À traiter <span class="badge badge-danger">{{ alerts }}</span></h2>
+    <ul class="issue-list">
+        {% for pub in failed_publications %}
+            <li>
+                <span class="badge badge-danger">Publication</span>
+                <a href="{{ path('publication_history', {id: pub.release.id}) }}">{{ pub.release.displayName }}</a>
+                — {{ pub.format.label }} → {{ pub.target.label }} : <span class="muted">{{ pub.errorMessage }}</span>
+            </li>
+        {% endfor %}
+        {% for release in sync_errors %}
+            <li>
+                <span class="badge badge-warning">Synchro Jira</span>
+                <a href="{{ path('release_show', {id: release.id}) }}">{{ release.displayName }}</a> : <span class="muted">{{ release.lastSyncError }}</span>
+            </li>
+        {% endfor %}
+        {% for connection in failing_connections %}
+            <li>
+                <span class="badge badge-warning">Connexion</span>
+                <a href="{{ path('connection_show', {id: connection.id}) }}">{{ connection.name }}</a> : <span class="muted">{{ connection.lastTestMessage }}</span>
+            </li>
+        {% endfor %}
+        {% for project in failing_projects %}
+            <li>
+                <span class="badge badge-warning">Configuration</span>
+                <a href="{{ path('project_show', {id: project.id}) }}">{{ project.name }}</a> : contrôles de configuration en échec.
+            </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+<div class="grid grid-2">
+    <section class="card">
+        <div class="card-header">
+            <h2>Brouillons en cours</h2>
+            <a href="{{ path('release_index', {status: 'draft'}) }}" class="small">Tout voir</a>
+        </div>
+        {% for release in drafts %}
+            {% include 'release/_row.html.twig' with {release: release} %}
+        {% else %}
+            {{ ui.empty('Aucun brouillon', null, path('release_new'), 'Créer une release note') }}
+        {% endfor %}
+    </section>
+
+    <section class="card">
+        <div class="card-header">
+            <h2>Prêtes à publier</h2>
+            <a href="{{ path('release_index', {status: 'ready'}) }}" class="small">Tout voir</a>
+        </div>
+        {% for release in ready %}
+            {% include 'release/_row.html.twig' with {release: release, publish_link: true} %}
+        {% else %}
+            {{ ui.empty('Aucune release en attente de publication') }}
+        {% endfor %}
+    </section>
+</div>
+
+<div class="grid grid-2">
+    <section class="card">
+        <div class="card-header"><h2>Dernières release notes</h2><a href="{{ path('release_index') }}" class="small">Toutes</a></div>
+        {% for release in latest %}
+            {% include 'release/_row.html.twig' with {release: release} %}
+        {% else %}
+            {{ ui.empty('Aucune release note pour le moment') }}
+        {% endfor %}
+    </section>
+
+    <section class="card">
+        <div class="card-header"><h2>Publications Confluence récentes</h2></div>
+        {% if recent_publications is empty %}
+            {{ ui.empty('Aucune publication') }}
+        {% else %}
+        <div class="table-wrap">
+            <table class="table">
+                <thead><tr><th>Release</th><th>Format</th><th>Cible</th><th>Statut</th><th>Date</th></tr></thead>
+                <tbody>
+                {% for pub in recent_publications %}
+                    <tr>
+                        <td><a href="{{ path('publication_history', {id: pub.release.id}) }}">{{ pub.release.displayName }}</a></td>
+                        <td>{{ pub.format.label }}</td>
+                        <td>{{ pub.target.value == 'cloud' ? 'Cloud' : 'Server/DC' }}</td>
+                        <td>{{ ui.publication_status(pub.status) }}</td>
+                        <td class="nowrap">{{ pub.lastAttemptAt ? pub.lastAttemptAt|date('d/m/Y H:i') : '—' }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </section>
+</div>
+
+<section class="card">
+    <div class="card-header"><h2>Projets configurés</h2><a href="{{ path('project_new') }}" class="btn btn-secondary btn-sm">＋ Projet</a></div>
+    {% if projects is empty %}
+        {{ ui.empty('Aucun projet', 'Un projet associe une clé Jira à des espaces Confluence.', path('project_new'), 'Créer un projet') }}
+    {% else %}
+        <div class="project-grid">
+            {% for project in projects %}
+                <a class="project-tile{{ project.active ? '' : ' is-inactive' }}" href="{{ path('project_show', {id: project.id}) }}">
+                    <div class="project-tile-head">
+                        <strong>{{ project.name }}</strong>
+                        <span class="badge badge-neutral">{{ project.code }}</span>
+                    </div>
+                    <div class="small muted">Jira {{ project.jiraProjectKey }} · {{ project.configuredTargets|length }} cible(s) Confluence</div>
+                    <div class="project-tile-foot">
+                        {% if not project.active %}{{ ui.badge('Inactif', 'muted') }}{% endif %}
+                        {% if project.lastCheckedAt is null %}{{ ui.badge('Configuration non vérifiée', 'neutral') }}
+                        {% elseif project.hasConfigurationErrors %}{{ ui.badge('Erreurs de configuration', 'danger') }}
+                        {% else %}{{ ui.badge('Configuration OK', 'success') }}{% endif %}
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

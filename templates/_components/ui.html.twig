@@ -1,0 +1,52 @@
+{# Composants visuels réutilisables. Usage : {% import '_components/ui.html.twig' as ui %} #}
+
+{% macro badge(label, variant = 'neutral', title = null) %}
+    <span class="badge badge-{{ variant }}"{% if title %} title="{{ title }}"{% endif %}>{{ label }}</span>
+{% endmacro %}
+
+{% macro release_status(status) %}
+    <span class="badge badge-{{ status.badge }}">{{ status.label }}</span>
+{% endmacro %}
+
+{% macro publication_status(status) %}
+    <span class="badge badge-{{ status.badge }}">{{ status.label }}</span>
+{% endmacro %}
+
+{% macro category(category) %}
+    <span class="badge badge-cat-{{ category.value }}"><span aria-hidden="true">{{ category.icon }}</span> {{ category.label }}</span>
+{% endmacro %}
+
+{% macro test_status(connection) %}
+    {% if connection.lastTestStatus is null %}
+        <span class="badge badge-neutral" title="Jamais testée depuis la dernière modification">Non testée</span>
+    {% elseif connection.lastTestStatus.value == 'success' %}
+        <span class="badge badge-success" title="{{ connection.lastTestMessage }}">Test OK</span>
+    {% else %}
+        <span class="badge badge-danger" title="{{ connection.lastTestMessage }}">Test en échec</span>
+    {% endif %}
+{% endmacro %}
+
+{% macro empty(title, text = null, action_url = null, action_label = null) %}
+    <div class="empty">
+        <div class="empty-icon" aria-hidden="true">◌</div>
+        <p class="empty-title">{{ title }}</p>
+        {% if text %}<p class="muted">{{ text }}</p>{% endif %}
+        {% if action_url %}<a class="btn btn-primary" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+    </div>
+{% endmacro %}
+
+{# Bouton d'action POST protégé par CSRF. confirm = message de confirmation JS. #}
+{% macro post_button(url, token_id, label, variant = 'secondary', confirm = null, extra = {}) %}
+    <form method="post" action="{{ url }}" class="inline-form"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}>
+        <input type="hidden" name="_token" value="{{ csrf_token(token_id) }}">
+        {% for name, value in extra %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+        <button type="submit" class="btn btn-{{ variant }}">{{ label|raw }}</button>
+    </form>
+{% endmacro %}
+
+{% macro stat(value, label, variant = '') %}
+    <div class="stat {{ variant }}">
+        <div class="stat-value">{{ value }}</div>
+        <div class="stat-label">{{ label }}</div>
+    </div>
+{% endmacro %}

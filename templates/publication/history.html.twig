@@ -1,0 +1,72 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Historique de publication{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Historique de publication{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div><h1>Publications</h1><p class="muted">{{ release.displayName }} — {{ ui.release_status(release.status) }}</p></div>
+    <div class="actions">{% if not release.archived %}<a class="btn btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}</div>
+</div>
+
+<section class="card">
+    <h2>Statut par cible</h2>
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Format</th><th>Cible</th><th>Statut</th><th>Page</th><th>Version</th><th>Tentatives</th><th>Dernière tentative</th><th></th></tr></thead>
+            <tbody>
+            {% for row in rows %}
+                {% set p = row.publication %}
+                <tr>
+                    <td>{{ row.format.label }}</td>
+                    <td>{{ row.target.label }}</td>
+                    <td>
+                        {% if not row.available and p is null %}<span class="small muted">{{ row.unavailableReason }}</span>
+                        {% elseif p %}{{ ui.publication_status(p.status) }}{% if row.outdated %} {{ ui.badge('Modifiée depuis', 'warning') }}{% endif %}
+                        {% else %}{{ ui.badge('Jamais publiée') }}{% endif %}
+                        {% if p and p.errorMessage %}<div class="small text-danger">{{ p.errorMessage }}</div>{% endif %}
+                    </td>
+                    <td class="small">{% if p and p.confluencePageUrl %}<a href="{{ p.confluencePageUrl }}" target="_blank" rel="noopener noreferrer">{{ p.pageTitle }} ↗</a><br><span class="muted">n°{{ p.confluencePageId }}</span>{% else %}—{% endif %}</td>
+                    <td>{{ p ? p.confluencePageVersion ?? '—' : '—' }}</td>
+                    <td>{{ p ? p.attemptCount : 0 }}</td>
+                    <td class="nowrap small">{{ p and p.lastAttemptAt ? p.lastAttemptAt|date('d/m/Y H:i') : '—' }}</td>
+                    <td class="nowrap">
+                        {% if p and row.available and p.status.value == 'failed' %}
+                            {{ ui.post_button(path('publication_retry', {id: p.id}), 'publication-retry-' ~ p.id, 'Réessayer', 'primary btn-sm') }}
+                        {% elseif p and row.available and p.status.value == 'success' %}
+                            {{ ui.post_button(path('publication_retry', {id: p.id}), 'publication-retry-' ~ p.id, 'Republier', 'secondary btn-sm', 'Republier cette cible ? La page existante sera mise à jour.') }}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="card">
+    <h2>Journal des tentatives</h2>
+    {% if attempts is empty %}
+        {{ ui.empty('Aucune tentative de publication') }}
+    {% else %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Date</th><th>Format</th><th>Cible</th><th>Résultat</th><th>Message</th><th>Durée</th></tr></thead>
+            <tbody>
+            {% for a in attempts %}
+                <tr>
+                    <td class="nowrap small">{{ a.createdAt|date('d/m/Y H:i:s') }}</td>
+                    <td>{{ a.publication.format.label }}</td>
+                    <td>{{ a.publication.target.label }}</td>
+                    <td>{{ ui.badge(a.actionLabel, a.status.badge) }}</td>
+                    <td class="small">{{ a.message }}</td>
+                    <td class="small muted nowrap">{{ a.durationMs is not null ? (a.durationMs / 1000)|number_format(1, ',') ~ ' s' : '—' }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

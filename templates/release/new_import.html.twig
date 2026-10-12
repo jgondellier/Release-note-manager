@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Import — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_new') }}">Nouvelle</a> › <a href="{{ path('release_new_versions', {id: project.id}) }}">{{ project.name }}</a> › Import{% endblock %}
+
+{% block body %}
+{% include 'release/_steps.html.twig' with {step: 3} %}
+
+{% if error %}
+    <div class="alert alert-danger"><strong>Lecture Jira impossible.</strong> {{ error }}</div>
+    <a class="btn btn-secondary" href="{{ path('release_new_versions', {id: project.id}) }}">← Retour aux versions</a>
+{% else %}
+{% set v = preview.version %}
+<div class="page-header">
+    <div>
+        <h1>{{ project.name }} — version {{ v.name }}</h1>
+        <p>
+            {{ v.released ? ui.badge('Livrée dans Jira', 'success') : ui.badge('Non livrée dans Jira', 'info') }}
+            {% if v.releaseDate %}<span class="muted">Date de release Jira : {{ v.releaseDate|date('d/m/Y') }}</span>{% endif %}
+        </p>
+        {% if v.description %}<p class="muted">{{ v.description }}</p>{% endif %}
+    </div>
+</div>
+
+<div class="grid grid-main-aside">
+    <section class="card">
+        <h2>Regroupement proposé <span class="badge badge-neutral">{{ preview.issueCount }} ticket(s)</span></h2>
+        <p class="small muted">JQL utilisée : <code>project = {{ project.jiraProjectKey }} AND fixVersion = {{ v.id }} ({{ v.name }}) ORDER BY issuetype, key</code>. Les titres d'Epic sont des valeurs initiales, modifiables ensuite.</p>
+        {% if preview.issueCount == 0 %}
+            <div class="alert alert-warning">Aucun ticket ne porte cette version. Vous pouvez tout de même créer la release note et ajouter des sections manuelles.</div>
+        {% endif %}
+        {% set issues_by_key = preview.issuesByKey %}
+        {% for plan in preview.plans %}
+            <details class="plan"{{ loop.index <= 3 ? ' open' }}>
+                <summary>
+                    <strong>{{ plan.title }}</strong>
+                    {{ ui.category(plan.category) }}
+                    {{ ui.badge(plan.sourceType.value == 'epic' ? 'Epic ' ~ plan.sourceKey : 'Par type', 'neutral') }}
+                    <span class="small muted">{{ plan.issueKeys|length }} ticket(s)</span>
+                </summary>
+                <ul class="ticket-mini">
+                    {% for key in plan.issueKeys %}
+                        {% set i = issues_by_key[key] %}
+                        <li><code>{{ key }}</code> <span class="badge badge-neutral">{{ i.issueType }}</span> {{ i.summary }} <span class="small muted">({{ i.status }})</span></li>
+                    {% endfor %}
+                </ul>
+            </details>
+        {% endfor %}
+    </section>
+    <aside class="card">
+        <h2>Créer le brouillon</h2>
+        <form method="post">
+            <input type="hidden" name="_token" value="{{ csrf_token('release-import-' ~ project.id ~ '-' ~ version_id) }}">
+            <div class="field">
+                <label for="title">Titre éditorial</label>
+                <input type="text" id="title" name="title" maxlength="255" value="{{ project.name }} — version {{ v.name }}">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Importer et créer le brouillon</button>
+        </form>
+        <p class="small muted">Les tickets sont relus au moment de l'import : l'aperçu peut différer si Jira change entre-temps.</p>
+    </aside>
+</div>
+{% endif %}
+{% endblock %}

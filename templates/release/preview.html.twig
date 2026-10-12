@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Aperçu {{ format.label }} — {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Aperçu {{ format.label }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Aperçu — {{ format.label }}</h1>
+        <p class="muted">Public : {{ format.audience }}. Rendu web fidèle à la structure publiée ; dans Confluence, la mise en forme utilise les macros natives (panneaux, statuts, encadrés).</p>
+    </div>
+</div>
+{% include 'release/_preview_tabs.html.twig' %}
+
+{% if view.warnings is not empty %}
+<details class="callout callout-warning" open>
+    <summary><strong>{{ view.warnings|length }} point(s) d'attention éditoriale</strong> (non publiés)</summary>
+    <ul class="small">{% for w in view.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+
+<div class="preview-frame">
+    {{ html|raw }}
+</div>
+{% endblock %}

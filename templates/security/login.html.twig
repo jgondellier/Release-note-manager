@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Connexion{% endblock %}
+{% block body_class %}page-login{% endblock %}
+
+{% block anonymous %}
+<main class="login">
+    <div class="login-card">
+        <div class="brand brand-lg">
+            <span class="brand-mark" aria-hidden="true">RN</span>
+            <span>Release Note<br><small>Manager</small></span>
+        </div>
+        <h1>Connexion administrateur</h1>
+        <p class="muted">Saisissez le token d'administration fourni par l'exploitant de l'application.</p>
+
+        {% if not token_configured %}
+            <div class="alert alert-warning">Le token d'administration n'est pas configuré sur le serveur (variable <code>ADMIN_TOKEN</code>, 32 caractères minimum). Voir le README.</div>
+        {% endif %}
+        {% if error %}
+            <div class="alert alert-danger" role="alert">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+
+        <form method="post" action="{{ path('app_login') }}" autocomplete="off">
+            <div class="field">
+                <label for="admin_token">Token d'administration</label>
+                <input type="password" id="admin_token" name="_admin_token" required autofocus autocomplete="current-password">
+            </div>
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+            <button type="submit" class="btn btn-primary btn-block">Se connecter</button>
+        </form>
+        <p class="muted small">Après 5 tentatives infructueuses, la connexion est bloquée 15 minutes.</p>
+    </div>
+</main>
+{% endblock %}

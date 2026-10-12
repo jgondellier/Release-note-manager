@@ -1,0 +1,45 @@
+parameters:
+    # Paramètres HTTP sortants (proxy d'entreprise, CA, délais). Valeurs issues de l'environnement.
+    app.http.proxy: '%env(string:APP_HTTP_PROXY)%'
+    app.http.no_proxy: '%env(string:APP_HTTP_NO_PROXY)%'
+    app.http.cafile: '%env(string:APP_HTTP_CAFILE)%'
+    app.http.verify_peer: '%env(bool:APP_HTTP_VERIFY_PEER)%'
+    app.http.timeout: '%env(float:APP_HTTP_TIMEOUT)%'
+    app.http.max_duration: '%env(float:APP_HTTP_MAX_DURATION)%'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Enum/'
+            - '../src/Kernel.php'
+            - '../src/Service/**/Dto/'
+            - '../src/Service/**/*Exception.php'
+
+    # Client HTTP utilisé pour Jira et Confluence (remplacé par un MockHttpClient en test).
+    app.atlassian_http_client:
+        alias: http_client
+
+    App\Service\Http\HttpClientOptionsProvider:
+        arguments:
+            $proxy: '%app.http.proxy%'
+            $noProxy: '%app.http.no_proxy%'
+            $caFile: '%app.http.cafile%'
+            $verifyPeer: '%app.http.verify_peer%'
+            $timeout: '%app.http.timeout%'
+            $maxDuration: '%app.http.max_duration%'
+
+when@test:
+    services:
+        test.mock_http_client:
+            class: Symfony\Component\HttpClient\MockHttpClient
+            public: true
+
+        app.atlassian_http_client:
+            alias: test.mock_http_client

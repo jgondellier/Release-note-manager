@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Résultat de publication{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Résultat{% endblock %}
+
+{% block body %}
+{% set ok = outcomes|filter(o => o.status == 'success')|length %}
+<div class="page-header">
+    <div>
+        <h1>Résultat de la publication</h1>
+        <p>{{ ok }} / {{ outcomes|length }} cible(s) publiée(s). Statut de la release : {{ ui.release_status(release.status) }}</p>
+    </div>
+    <div class="actions">
+        <a class="btn btn-secondary" href="{{ path('publication_history', {id: release.id}) }}">Historique et nouvelles tentatives</a>
+        <a class="btn btn-ghost" href="{{ path('release_show', {id: release.id}) }}">← Éditeur</a>
+    </div>
+</div>
+<div class="result-list">
+    {% for o in outcomes %}
+        <div class="result-item result-{{ o.status }}">
+            <div class="result-icon" aria-hidden="true">{{ o.status == 'success' ? '✔' : (o.status == 'failed' ? '✖' : '–') }}</div>
+            <div>
+                <strong>{{ o.format.label }} → {{ o.target.label }}</strong>
+                <div>{{ o.message }}</div>
+                {% if o.pageUrl %}<a href="{{ o.pageUrl }}" target="_blank" rel="noopener noreferrer">Ouvrir la page Confluence ↗</a>{% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

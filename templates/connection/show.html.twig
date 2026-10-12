@@ -1,0 +1,43 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}{{ connection.name }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('connection_index') }}">Connexions</a> › {{ connection.name }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>{{ connection.name }}</h1>
+        <p>{{ ui.badge(connection.provider.label, connection.isJira ? 'info' : 'primary') }} {{ ui.badge(connection.deploymentType.label) }} {{ connection.active ? ui.badge('Active', 'success') : ui.badge('Inactive', 'muted') }}</p>
+    </div>
+    <div class="actions">
+        {{ ui.post_button(path('connection_test', {id: connection.id}), 'connection-test-' ~ connection.id, 'Tester la connexion', 'primary') }}
+        <a class="btn btn-secondary" href="{{ path('connection_edit', {id: connection.id}) }}">Modifier</a>
+        {{ ui.post_button(path('connection_toggle', {id: connection.id}), 'connection-toggle-' ~ connection.id, connection.active ? 'Désactiver' : 'Réactiver', 'ghost', connection.active ? 'Désactiver cette connexion ? Les projets qui l\'utilisent ne pourront plus importer ni publier.' : null) }}
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <section class="card">
+        <h2>Paramètres</h2>
+        <dl class="dl">
+            <dt>URL de base</dt><dd class="break">{{ connection.baseUrl }}</dd>
+            <dt>Authentification</dt><dd>{{ connection.authenticationType.label }}</dd>
+            <dt>Identifiant</dt><dd>{{ connection.username ?? '—' }}</dd>
+            <dt>Secret</dt><dd>{{ connection.hasSecret ? 'Enregistré (chiffré, non affichable)' : 'Absent' }}</dd>
+            {% if connection.isJira %}<dt>Champ Epic Link</dt><dd>{{ connection.jiraEpicLinkField ?? 'Non défini (relation parent uniquement)' }}</dd>{% endif %}
+            <dt>Projets utilisant cette connexion</dt><dd>{{ usage }}</dd>
+            <dt>Créée / modifiée</dt><dd>{{ connection.createdAt|date('d/m/Y H:i') }} / {{ connection.updatedAt|date('d/m/Y H:i') }}</dd>
+        </dl>
+    </section>
+    <section class="card">
+        <h2>Dernier test</h2>
+        {% if connection.lastTestedAt %}
+            <p>{{ ui.test_status(connection) }} le {{ connection.lastTestedAt|date('d/m/Y à H:i') }}</p>
+            <div class="callout {{ connection.lastTestStatus.value == 'success' ? 'callout-success' : 'callout-danger' }}">{{ connection.lastTestMessage }}</div>
+        {% else %}
+            {{ ui.empty('Connexion jamais testée', 'Lancez un test pour vérifier l\'URL, l\'authentification et les droits.') }}
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

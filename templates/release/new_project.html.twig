@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Nouvelle release note{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_index') }}">Release notes</a> › Nouvelle{% endblock %}
+
+{% block body %}
+<div class="page-header"><h1>Nouvelle release note</h1></div>
+{% include 'release/_steps.html.twig' with {step: 1} %}
+
+{% if projects is empty %}
+    {{ ui.empty('Aucun projet actif', 'Créez et configurez un projet avant de créer une release note.', path('project_new'), 'Créer un projet') }}
+{% else %}
+<div class="project-grid">
+    {% for project in projects %}
+        <a class="project-tile" href="{{ path('release_new_versions', {id: project.id}) }}">
+            <div class="project-tile-head"><strong>{{ project.name }}</strong><span class="badge badge-neutral">{{ project.code }}</span></div>
+            <div class="small muted">Jira : {{ project.jiraProjectKey }} ({{ project.jiraConnection ? project.jiraConnection.name : 'connexion manquante' }})</div>
+            <div class="small muted">{{ project.configuredTargets|length }} instance(s) Confluence configurée(s)</div>
+            <span class="tile-cta">Choisir ce projet →</span>
+        </a>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

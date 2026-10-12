@@ -1,0 +1,82 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}{{ is_new ? 'Nouvelle section' : section.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › {{ is_new ? 'Nouvelle section' : section.title }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>{{ is_new ? 'Nouvelle section manuelle' : 'Wording de la section' }}</h1>
+        {% if not is_new %}
+            <p>{{ ui.category(section.category) }}
+            {% if section.sourceType.value == 'epic' %}{{ ui.badge('Issue de l\'Epic ' ~ section.sourceKey) }}{% elseif section.sourceType.value == 'issue_type' %}{{ ui.badge('Regroupement par type') }}{% else %}{{ ui.badge('Manuelle') }}{% endif %}
+            <span class="small muted">Le texte saisi ici n'est jamais remplacé par une actualisation Jira.</span></p>
+        {% endif %}
+    </div>
+</div>
+
+{{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+<div class="grid grid-main-aside">
+    <div>
+        <section class="card">
+            <h2>Commun</h2>
+            <div class="grid grid-2">{{ form_row(form.title) }}{{ form_row(form.category) }}</div>
+            {{ form_row(form.description) }}
+            <div class="grid grid-2">{{ form_row(form.impact) }}{{ form_row(form.actionRequired) }}</div>
+            <div class="grid grid-2">{{ form_row(form.audience) }}{{ form_row(form.links) }}</div>
+        </section>
+
+        <section class="card">
+            <div class="tabs" role="tablist" data-tabs>
+                <button type="button" class="tab active" data-tab="w-it">IT interne</button>
+                <button type="button" class="tab" data-tab="w-functional">Fonctionnel</button>
+                <button type="button" class="tab" data-tab="w-communication">Communication</button>
+            </div>
+            <div data-tab-panel="w-it">
+                {{ form_row(form.visibleIt) }}
+                {{ form_row(form.itContent) }}
+                <div class="grid grid-2">{{ form_row(form.risks) }}{{ form_row(form.validation) }}</div>
+            </div>
+            <div data-tab-panel="w-functional" hidden>
+                {{ form_row(form.visibleFunctional) }}
+                {{ form_row(form.functionalTitle) }}
+                {{ form_row(form.functionalContent) }}
+                {{ form_row(form.functionalShowTickets) }}
+            </div>
+            <div data-tab-panel="w-communication" hidden>
+                {{ form_row(form.visibleCommunication) }}
+                {{ form_row(form.communicationTitle) }}
+                {{ form_row(form.communicationContent) }}
+                {{ form_row(form.deliveryConfirmed) }}
+            </div>
+        </section>
+    </div>
+
+    <aside>
+        <section class="card sticky">
+            <h2>Aperçu immédiat</h2>
+            <p class="small muted">Rendu du champ en cours d'édition (même conversion que la publication).</p>
+            <div class="live-preview rn-doc" data-live-preview><p class="placeholder">Cliquez dans un champ de texte.</p></div>
+            <h3>Syntaxe</h3>
+            <ul class="small syntax">
+                <li>Ligne vide → paragraphe</li>
+                <li><code>- élément</code> → puce, <code>1. élément</code> → liste numérotée</li>
+                <li><code>**gras**</code>, <code>`code`</code>, URL → lien</li>
+            </ul>
+            {% if not is_new and section.tickets is not empty %}
+                <h3>Tickets sources ({{ section.tickets|length }})</h3>
+                <ul class="ticket-mini small">
+                    {% for t in section.tickets %}<li><a href="{{ path('ticket_show', {id: t.id}) }}"><code>{{ t.jiraKey }}</code></a> {{ t.summary }}</li>{% endfor %}
+                </ul>
+            {% endif %}
+        </section>
+    </aside>
+</div>
+<div class="form-actions sticky-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer</button>
+    {% if not is_new %}<button type="submit" name="stay" value="1" class="btn btn-secondary">Enregistrer et continuer</button>{% endif %}
+    <a class="btn btn-ghost" href="{{ path('release_show', {id: release.id}) }}">Annuler</a>
+</div>
+{{ form_end(form) }}
+{% endblock %}

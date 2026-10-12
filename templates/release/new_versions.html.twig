@@ -1,0 +1,50 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Versions Jira — {{ project.name }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_index') }}">Release notes</a> › <a href="{{ path('release_new') }}">Nouvelle</a> › {{ project.name }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Versions Jira de {{ project.name }}</h1>
+        <p class="muted">Projet Jira <strong>{{ project.jiraProjectKey }}</strong>. Seuls les tickets portant la Fix Version choisie seront importés.</p>
+    </div>
+    <div class="actions">
+        <a class="btn btn-ghost" href="{{ path('release_new_versions', {id: project.id, archived: show_archived ? 0 : 1}) }}">{{ show_archived ? 'Masquer' : 'Afficher' }} les versions archivées</a>
+    </div>
+</div>
+{% include 'release/_steps.html.twig' with {step: 2} %}
+
+{% if error %}
+    <div class="alert alert-danger"><strong>Chargement des versions impossible.</strong> {{ error }}</div>
+    <p><a class="btn btn-secondary" href="{{ path('project_show', {id: project.id}) }}">Vérifier la configuration du projet</a></p>
+{% elseif versions is empty %}
+    {{ ui.empty('Aucune version disponible', 'Le projet Jira ne contient aucune version (ou elles sont toutes archivées).') }}
+{% else %}
+<div class="version-list">
+    {% for v in versions %}
+        {% set existing_release = existing[v.id] ?? null %}
+        <article class="version-card{{ v.released ? ' is-released' : '' }}">
+            <div class="version-main">
+                <h3>{{ v.name }}</h3>
+                <div class="version-meta">
+                    {{ v.released ? ui.badge('Livrée', 'success') : ui.badge('Non livrée', 'info') }}
+                    {% if v.archived %}{{ ui.badge('Archivée', 'muted') }}{% endif %}
+                    {% if v.releaseDate %}<span class="small muted">Date de release : {{ v.releaseDate|date('d/m/Y') }}</span>{% endif %}
+                    {% if v.startDate %}<span class="small muted">· Début : {{ v.startDate|date('d/m/Y') }}</span>{% endif %}
+                </div>
+                {% if v.description %}<p class="small">{{ v.description }}</p>{% endif %}
+            </div>
+            <div class="version-action">
+                {% if existing_release %}
+                    <a class="btn btn-secondary" href="{{ path('release_show', {id: existing_release.id}) }}">Ouvrir la release existante</a>
+                {% else %}
+                    <a class="btn btn-primary" href="{{ path('release_new_import', {id: project.id, versionId: v.id}) }}">Sélectionner</a>
+                {% endif %}
+            </div>
+        </article>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

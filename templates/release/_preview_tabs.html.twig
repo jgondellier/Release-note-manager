@@ -1,0 +1,13 @@
+<div class="editor-toolbar">
+    <nav class="tabs" aria-label="Formats">
+        {% for f in formats %}
+            <a class="tab{{ f == format ? ' active' }}" href="{{ path(storage ?? false ? 'release_preview_storage' : 'release_preview', {id: release.id, format: f.value}) }}">{{ f.label }}</a>
+        {% endfor %}
+    </nav>
+    <div class="toolbar-right">
+        <a class="btn btn-sm btn-ghost{{ not (storage ?? false) ? ' active' }}" href="{{ path('release_preview', {id: release.id, format: format.value}) }}">Aperçu web</a>
+        <a class="btn btn-sm btn-ghost{{ storage ?? false ? ' active' }}" href="{{ path('release_preview_storage', {id: release.id, format: format.value}) }}">Source Confluence</a>
+        <a class="btn btn-sm btn-secondary" href="{{ path('release_show', {id: release.id}) }}">← Éditeur</a>
+        {% if not release.archived %}<a class="btn btn-sm btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}
+    </div>
+</div>

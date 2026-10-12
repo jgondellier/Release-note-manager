@@ -1,0 +1,37 @@
+{% import 'render/confluence/_macros.xml.twig' as c %}
+{% set meta %}
+<p><strong>Version :</strong> {% if doc.jiraVersionUrl %}<a href="{{ doc.jiraVersionUrl }}">{{ doc.release.jiraVersionName }}</a>{% else %}{{ doc.release.jiraVersionName }}{% endif %}{% if doc.release.releaseDate %} · <strong>Mise en production :</strong> {{ doc.release.releaseDate|date('d/m/Y') }}{% endif %} · <strong>Tickets :</strong> {{ doc.ticketCount }} · {{ c.status(doc.release.jiraVersionReleased ? 'Version livrée' : 'Version non livrée', doc.release.jiraVersionReleased ? 'Green' : 'Blue') }}</p>
+{% if doc.typeStats is not empty %}<p><strong>Périmètre :</strong> {% for type, count in doc.typeStats %}{{ count }} {{ type }}{{ not loop.last ? ' · ' }}{% endfor %}</p>{% endif %}
+{% if doc.components is not empty %}<p><strong>Composants :</strong> {{ doc.components|join(', ') }}</p>{% endif %}
+{% endset %}
+{{ c.panel('Release note IT — ' ~ doc.project.name, meta, '#EAF0FB', '#2451B7') }}
+{% if doc.intro %}{{ doc.intro|rn_text }}{% endif %}
+{% if doc.sections|length > 1 %}{{ c.toc() }}{% endif %}
+{% for s in doc.sections %}
+<h2>{{ s.title }}</h2>
+<p>{{ c.category(s.category) }}{% if s.section.sourceType.value == 'epic' %} {{ c.status('Epic ' ~ s.section.sourceKey, 'Grey') }}{% endif %}{% if s.section.audience %} <em>Audience : {{ s.section.audience }}</em>{% endif %}</p>
+{% if s.section.description %}{{ s.section.description|rn_text }}{% endif %}
+{% if s.content %}<h3>Description technique</h3>{{ s.content|rn_text }}{% endif %}
+{{ c.callout('info', 'Impacts', s.section.impact|rn_text) }}
+{{ c.callout('note', 'Procédure / action', s.section.actionRequired|rn_text) }}
+{{ c.callout('warning', 'Risques et points de vigilance', s.section.risks|rn_text) }}
+{{ c.callout('tip', 'Tests et validations', s.section.validation|rn_text) }}
+{% if s.tickets is not empty %}
+<table><colgroup><col /><col /><col /><col /><col /><col /></colgroup><tbody>
+<tr><th>Clé</th><th>Type</th><th>Résumé</th><th>Statut</th><th>Priorité</th><th>Composants</th></tr>
+{% for t in s.tickets %}
+<tr><td><a href="{{ t.jiraUrl }}">{{ t.jiraKey }}</a></td><td>{{ t.issueType }}</td><td>{{ t.summary }}</td><td>{{ c.status(t.status ?? '?', t.done ? 'Green' : 'Grey') }}</td><td>{{ t.priority }}</td><td>{{ t.components|join(', ') }}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+{{ c.links(s.links) }}
+{% else %}
+<p><em>Aucune section n'est visible dans ce format.</em></p>
+{% endfor %}
+{% if doc.actions is not empty %}
+{% set actions %}<ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>{% endset %}
+<h2>Actions et procédures à prévoir</h2>
+{{ c.callout('note', null, actions) }}
+{% endif %}
+{{ c.links(doc.links) }}
+{{ c.footer(doc) }}

@@ -1,0 +1,96 @@
+{
+    "name": "release-note-manager/app",
+    "type": "project",
+    "license": "proprietary",
+    "description": "Release Note Manager : génération de release notes depuis Jira et publication vers Confluence Cloud et Server/Data Center.",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=8.2",
+        "ext-ctype": "*",
+        "ext-iconv": "*",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ext-sodium": "*",
+        "doctrine/dbal": "^4.2",
+        "doctrine/doctrine-bundle": "^2.13",
+        "doctrine/doctrine-migrations-bundle": "^3.4",
+        "doctrine/orm": "^3.3",
+        "symfony/asset": "7.4.*",
+        "symfony/console": "7.4.*",
+        "symfony/dotenv": "7.4.*",
+        "symfony/form": "7.4.*",
+        "symfony/framework-bundle": "7.4.*",
+        "symfony/http-client": "7.4.*",
+        "symfony/lock": "7.4.*",
+        "symfony/monolog-bundle": "^3.10",
+        "symfony/rate-limiter": "7.4.*",
+        "symfony/security-bundle": "7.4.*",
+        "symfony/security-csrf": "7.4.*",
+        "symfony/translation": "7.4.*",
+        "symfony/twig-bundle": "7.4.*",
+        "symfony/validator": "7.4.*",
+        "symfony/yaml": "7.4.*",
+        "twig/twig": "^3.12"
+    },
+    "require-dev": {
+        "doctrine/doctrine-fixtures-bundle": "^4.1",
+        "phpunit/phpunit": "^11.5",
+        "symfony/browser-kit": "7.4.*",
+        "symfony/css-selector": "7.4.*"
+    },
+    "suggest": {
+        "ext-pdo_mysql": "Requis pour MySQL en développement et production.",
+        "ext-pdo_sqlite": "Requis pour exécuter la suite de tests (base SQLite isolée).",
+        "ext-curl": "Recommandé : HttpClient utilise cURL (meilleure gestion des proxys d'entreprise)."
+    },
+    "config": {
+        "allow-plugins": {},
+        "optimize-autoloader": true,
+        "platform": {
+            "php": "8.2.0"
+        },
+        "preferred-install": {
+            "*": "dist"
+        },
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "replace": {
+        "symfony/polyfill-ctype": "*",
+        "symfony/polyfill-iconv": "*",
+        "symfony/polyfill-php72": "*",
+        "symfony/polyfill-php73": "*",
+        "symfony/polyfill-php74": "*",
+        "symfony/polyfill-php80": "*",
+        "symfony/polyfill-php81": "*",
+        "symfony/polyfill-php82": "*"
+    },
+    "conflict": {
+        "symfony/symfony": "*"
+    },
+    "scripts": {
+        "post-install-cmd": [
+            "@php bin/console cache:clear --no-warmup"
+        ],
+        "post-update-cmd": [
+            "@php bin/console cache:clear --no-warmup"
+        ],
+        "test": "@php vendor/bin/phpunit",
+        "lint": [
+            "@php bin/console lint:container",
+            "@php bin/console lint:twig templates",
+            "@php bin/console lint:yaml config",
+            "@php bin/console doctrine:schema:validate --skip-sync"
+        ]
+    }
+}

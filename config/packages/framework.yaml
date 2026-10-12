@@ -1,0 +1,36 @@
+framework:
+    secret: '%env(APP_SECRET)%'
+    default_locale: fr
+    http_method_override: false
+    handle_all_throwables: true
+    csrf_protection: true
+
+    session:
+        name: RNMSESSID
+        handler_id: null
+        cookie_secure: auto
+        cookie_httponly: true
+        cookie_samesite: lax
+        cookie_lifetime: 0
+        gc_maxlifetime: 14400
+
+    php_errors:
+        log: true
+
+    # Verrous anti-publications concurrentes (fichiers locaux : une seule instance web).
+    # En multi-serveurs, utiliser un store partagé (ex. redis://, ou une DSN PDO).
+    lock: 'flock://%kernel.project_dir%/var/lock'
+
+    http_client:
+        default_options:
+            headers:
+                'User-Agent': 'ReleaseNoteManager/1.0'
+
+    assets:
+        version: 'v1'
+
+when@test:
+    framework:
+        test: true
+        session:
+            storage_factory_id: session.storage.factory.mock_file

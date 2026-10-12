@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Supprimer {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Supprimer{% endblock %}
+
+{% block body %}
+<div class="page-header"><h1>Supprimer la release note</h1></div>
+<section class="card card-alert narrow">
+    <p>Vous allez supprimer définitivement <strong>{{ release.displayName }}</strong> : sections, wording, tickets importés{% if published %} <strong>et tout l'historique de publication</strong>{% endif %}.</p>
+    {% if published %}
+        <div class="alert alert-warning">
+            Cette release a déjà été publiée sur Confluence. Les pages publiées <strong>ne seront pas supprimées</strong> de Confluence, mais le lien entre l'application et ces pages sera perdu : une nouvelle release pour la même version créerait de nouvelles pages (ou reprendrait celles de même titre).
+            L'archivage est généralement préférable.
+        </div>
+    {% endif %}
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('release-delete-' ~ release.id) }}">
+        {% if published %}
+            <div class="field">
+                <label for="confirmation">Pour confirmer, saisissez le nom de la version : <code>{{ release.jiraVersionName }}</code></label>
+                <input id="confirmation" name="confirmation" type="text" required autocomplete="off">
+            </div>
+        {% endif %}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-danger"{% if not published %} data-confirm-click="Supprimer définitivement cette release note ?"{% endif %}>Supprimer définitivement</button>
+            {% if not release.archived %}
+                <a class="btn btn-secondary" href="{{ path('release_show', {id: release.id}) }}">Annuler</a>
+            {% endif %}
+        </div>
+    </form>
+</section>
+{% endblock %}

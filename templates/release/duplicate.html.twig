@@ -1,0 +1,36 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Dupliquer {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › Dupliquer{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Dupliquer vers une autre version</h1>
+        <p class="muted">Crée une release pour une autre version Jira de {{ release.project.name }} : les tickets de la nouvelle version sont importés, puis le wording des sections correspondantes (même Epic / même type) et les sections manuelles sont recopiés.</p>
+    </div>
+</div>
+{% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+{% elseif versions is empty %}
+    {{ ui.empty('Aucune version disponible', 'Toutes les versions non archivées ont déjà une release note.') }}
+{% else %}
+<section class="card narrow">
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('release-duplicate-' ~ release.id) }}">
+        <div class="field">
+            <label for="version_id">Version cible</label>
+            <select id="version_id" name="version_id" required>
+                {% for v in versions %}<option value="{{ v.id }}">{{ v.name }}{{ v.released ? ' (livrée)' : '' }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label for="title">Titre éditorial</label>
+            <input type="text" id="title" name="title" maxlength="255" placeholder="Laisser vide pour un titre par défaut">
+        </div>
+        <div class="form-actions"><button class="btn btn-primary" type="submit">Dupliquer</button></div>
+    </form>
+</section>
+{% endif %}
+{% endblock %}
