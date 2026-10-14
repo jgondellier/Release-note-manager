@@ -30,9 +30,11 @@ final class JiraIssueServiceTest extends TestCase
         // Ticket renvoyé à tort par Jira avec une autre version : doit être écarté.
         $all[] = JiraFixtures::issue('FIN-99', 'Story', 'Autre version', [], '20000');
 
-        $this->server->on('POST', '/rest/api/2/search', static function (array $body) use ($all) {
+        $this->server->on('GET', '/rest/api/2/search', static function (array $body, string $url, array $query) use ($all) {
             // L'instance plafonne à 3 résultats par page, quel que soit maxResults.
-            return ['startAt' => $body['startAt'], 'maxResults' => 3, 'total' => \count($all), 'issues' => \array_slice($all, $body['startAt'], 3)];
+            $startAt = (int) $query['startAt'];
+
+            return ['startAt' => $startAt, 'maxResults' => 3, 'total' => \count($all), 'issues' => \array_slice($all, $startAt, 3)];
         });
 
         $connection = $this->connection(ConnectionProvider::Jira, DeploymentType::Server, 'https://jira.local', AuthenticationType::Bearer);
@@ -42,9 +44,16 @@ final class JiraIssueServiceTest extends TestCase
         $issues = $service->findByFixVersion($project, new JiraVersion('10042', '2.4.0', null, false, false, null, null));
 
         self::assertCount(7, $issues);
-        self::assertSame([0, 3, 6], array_map(static fn ($r) => $r['json']['startAt'], $this->server->requests));
-        self::assertStringContainsString('fixVersion = 10042', $this->server->requests[0]['json']['jql']);
-        self::assertStringContainsString('project = "FIN"', $this->server->requests[0]['json']['jql']);
+        $queries = array_map(static function ($r) {
+            parse_str((string) parse_url($r['url'], PHP_URL_QUERY), $q);
+
+            return $q;
+        }, $this->server->requests);
+        self::assertSame(['0', '3', '6'], array_column($queries, 'startAt'));
+        self::assertStringContainsString('fixVersion = 10042', $queries[0]['jql']);
+        self::assertStringContainsString('project = "FIN"', $queries[0]['jql']);
+        self::assertArrayNotHasKey('validateQuery', $queries[0], 'Option non portable entre versions de Jira Server');
+        self::assertStringContainsString('fixVersions', $queries[0]['fields']);
         self::assertNotContains('FIN-99', array_map(static fn ($i) => $i->key, $issues));
     }
 }

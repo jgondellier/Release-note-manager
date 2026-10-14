@@ -16,7 +16,7 @@ use Psr\Log\LoggerInterface;
  * Recherche paginée des tickets Jira.
  *
  * - Cloud : POST /rest/api/3/search/jql, pagination par nextPageToken.
- * - Server/Data Center : POST /rest/api/2/search, pagination par startAt/total.
+ * - Server/Data Center : GET /rest/api/2/search, pagination par startAt/total.
  */
 class JiraIssueService
 {
@@ -159,12 +159,13 @@ class JiraIssueService
         $startAt = 0;
         $pages = 0;
         do {
-            $data = $this->client->post($connection, '/rest/api/2/search', [
+            // GET + paramètres d'URL : forme acceptée par toutes les versions de Jira Server/DC
+            // (le corps POST et l'option validateQuery varient selon les versions).
+            $data = $this->client->get($connection, '/rest/api/2/search', [
                 'jql' => $jql,
-                'fields' => JiraIssueNormalizer::fields($connection),
+                'fields' => implode(',', JiraIssueNormalizer::fields($connection)),
                 'startAt' => $startAt,
                 'maxResults' => self::PAGE_SIZE,
-                'validateQuery' => 'strict',
             ]);
             $received = $this->collect($data, $connection, $issues);
             $total = (int) ($data['total'] ?? 0);
