@@ -16,6 +16,9 @@ use App\Service\Http\ExternalApiException;
  * 2. sinon, page de même titre dans l'espace → reprise et mise à jour ;
  * 3. sinon → création ;
  *
+ * Lors d'une mise à jour, la page est (re)placée sous $parentId s'il est fourni
+ * (ex. pages publiées avant l'introduction de la page de regroupement).
+ *
  * En cas de conflit de version (409, modification concurrente dans Confluence),
  * la page est relue et la mise à jour retentée une fois.
  * Si la création échoue parce que le titre existe déjà, la page est retrouvée et mise à jour.
@@ -37,7 +40,7 @@ class ConfluencePagePublisher
         $page ??= $api->findPageByTitle($connection, $spaceKey, $title);
 
         if (null !== $page) {
-            return new PagePublishResult($this->update($connection, $api, $page, $title, $storage), PagePublishResult::UPDATED);
+            return new PagePublishResult($this->update($connection, $api, $page, $title, $storage, $parentId), PagePublishResult::UPDATED);
         }
 
         try {
@@ -46,16 +49,16 @@ class ConfluencePagePublisher
             // Titre déjà pris (création concurrente ou page non indexée) : on met à jour la page existante.
             if (\in_array($e->getCategory(), [ExternalApiException::BAD_REQUEST, ExternalApiException::CONFLICT], true)
                 && null !== ($existing = $api->findPageByTitle($connection, $spaceKey, $title))) {
-                return new PagePublishResult($this->update($connection, $api, $existing, $title, $storage), PagePublishResult::UPDATED);
+                return new PagePublishResult($this->update($connection, $api, $existing, $title, $storage, $parentId), PagePublishResult::UPDATED);
             }
             throw $e;
         }
     }
 
-    private function update(ExternalConnection $connection, ConfluenceApiInterface $api, ConfluencePage $page, string $title, string $storage): ConfluencePage
+    private function update(ExternalConnection $connection, ConfluenceApiInterface $api, ConfluencePage $page, string $title, string $storage, ?string $parentId): ConfluencePage
     {
         try {
-            return $api->updatePage($connection, $page, $title, $storage);
+            return $api->updatePage($connection, $page, $title, $storage, $parentId);
         } catch (ExternalApiException $e) {
             if (!$e->isConflict()) {
                 throw $e;
@@ -65,7 +68,7 @@ class ConfluencePagePublisher
                 throw $e;
             }
 
-            return $api->updatePage($connection, $fresh, $title, $storage);
+            return $api->updatePage($connection, $fresh, $title, $storage, $parentId);
         }
     }
 }

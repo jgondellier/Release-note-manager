@@ -118,11 +118,16 @@ class Release
     #[ORM\OneToMany(targetEntity: Publication::class, mappedBy: 'release', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $publications;
 
+    /** @var Collection<int, PublicationContainer> pages de regroupement Confluence (une par instance) */
+    #[ORM\OneToMany(targetEntity: PublicationContainer::class, mappedBy: 'release', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $containers;
+
     public function __construct()
     {
         $this->sections = new ArrayCollection();
         $this->tickets = new ArrayCollection();
         $this->publications = new ArrayCollection();
+        $this->containers = new ArrayCollection();
     }
 
     public function __toString(): string
@@ -486,6 +491,33 @@ class Release
         }
 
         return null;
+    }
+
+    /** @return Collection<int, PublicationContainer> */
+    public function getContainers(): Collection
+    {
+        return $this->containers;
+    }
+
+    public function findContainer(PublicationTarget $target): ?PublicationContainer
+    {
+        foreach ($this->containers as $container) {
+            if ($container->getTarget() === $target) {
+                return $container;
+            }
+        }
+
+        return null;
+    }
+
+    public function addContainer(PublicationContainer $container): static
+    {
+        if (!$this->containers->contains($container)) {
+            $this->containers->add($container);
+            $container->setRelease($this);
+        }
+
+        return $this;
     }
 
     public function hasSuccessfulPublication(): bool

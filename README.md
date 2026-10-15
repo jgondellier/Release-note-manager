@@ -127,7 +127,7 @@ php bin/console doctrine:migrations:migrate
 php bin/console doctrine:schema:validate      # doit indiquer « in sync »
 ```
 
-La migration initiale crée les 8 tables et insère les correspondances de types par défaut
+La migration initiale crée les 8 tables principales (la seconde ajoute `publication_container`) et insère les correspondances de types par défaut
 (Bug → Corrections, Story → Évolutions, Task → Tâches techniques, « * » → Autres changements, ainsi que
 les libellés français : Bogue, Récit, Tâche…).
 
@@ -278,6 +278,22 @@ Syntaxe des champs de texte : ligne vide = paragraphe, `- ` = puce, `1. ` = list
 4. **Historique** : statut par cible, lien vers la page, version, nombre de tentatives, journal détaillé,
    boutons **Réessayer** (échec) / **Republier**.
 
+**Arborescence Confluence** (identique sur Cloud et Server/DC) : sur chaque instance, une page de
+regroupement par release, placée sous la page parente du projet (ou à la racine de l'espace), contient les
+trois release notes :
+
+```
+Page parente du projet (facultative)
+└── CCS 2.4.0 — Release notes        ← créée automatiquement, liste ses sous-pages (macro « children »)
+    ├── CCS 2.4.0 — Release note IT
+    ├── CCS 2.4.0 — Release note fonctionnelle
+    └── CCS 2.4.0 — Nouveautés
+```
+
+La page de regroupement est mémorisée par release et par instance, et n'est republiée que si son contenu
+change. Les pages publiées avant cette organisation sont déplacées sous elle à leur prochaine republication.
+Une page parente est utilisée plutôt qu'un « dossier » Confluence, qui n'existe que sur Cloud.
+
 Règles anti-doublon : identifiant de page mémorisé par (release, format, cible) ; si la page a été supprimée,
 recherche d'une page de même titre dans l'espace ; création seulement en dernier recours ; conflit de version
 (409) → relecture et nouvelle tentative. Titre de page stable : `<Projet> <Version> — <Format>`.
@@ -293,7 +309,7 @@ ne sont jamais supprimées par l'application. L'archivage (lecture seule) est pr
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 59 tests (unitaires, intégration, fonctionnels)
+php vendor/bin/phpunit                 # 60 tests (unitaires, intégration, fonctionnels)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional
@@ -415,6 +431,7 @@ erDiagram
     RELEASE_NOTE ||--o{ JIRA_TICKET : importe
     RELEASE_SECTION ||--o{ JIRA_TICKET : regroupe
     RELEASE_NOTE ||--o{ PUBLICATION : "format x cible"
+    RELEASE_NOTE ||--o{ PUBLICATION_CONTAINER : "page de regroupement par cible"
     PUBLICATION ||--o{ PUBLICATION_ATTEMPT : historise
 
     EXTERNAL_CONNECTION {
@@ -513,6 +530,16 @@ erDiagram
         int page_version
         datetime created_at
     }
+    PUBLICATION_CONTAINER {
+        int id PK
+        int release_id FK "UK avec target"
+        string target "cloud | server"
+        string confluence_page_id
+        string confluence_page_url
+        string page_title
+        int confluence_page_version
+        string content_hash
+    }
     ISSUE_TYPE_MAPPING {
         int id PK
         int project_id FK "NULL = global"
@@ -555,7 +582,10 @@ Correspondance avec le cahier des charges :
 ## 23. Limites connues
 
 - Les pages Confluence modifiées à la main sont **écrasées** à la republication (un avertissement figure en
-  pied de page publiée). La republication ne déplace pas une page existante si la page parente change.
+  pied de page publiée).
+- Si la page parente du projet change, la page de regroupement existante n'est déplacée que lorsque son
+  contenu est republié (changement de titre, de date…) ; les pages de format, elles, restent sous la page de
+  regroupement.
 - La publication est synchrone (6 cibles maximum, délais bornés par `APP_HTTP_MAX_DURATION`) ; pas de file
   d'attente asynchrone.
 - Verrous de publication sur fichiers locaux (`var/lock`) : adaptés à un seul serveur web ; en

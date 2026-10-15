@@ -57,6 +57,24 @@ class ReleaseNoteRenderer
         return mb_substr(sprintf('%s %s — %s', $project?->getName() ?? '', $release->getJiraVersionName(), $format->pageSuffix()), 0, 255);
     }
 
+    /** Titre de la page de regroupement : stable (projet + version) et distinct des pages de format. */
+    public function containerTitle(Release $release): string
+    {
+        $project = $release->getProject();
+
+        return mb_substr(sprintf('%s %s — Release notes', $project?->getName() ?? '', $release->getJiraVersionName()), 0, 255);
+    }
+
+    /** Contenu de la page de regroupement (liste automatique des pages enfants). */
+    public function renderContainerStorage(Release $release): string
+    {
+        $xml = $this->twig->render('render/confluence/container.xml.twig', ['release' => $release]);
+        $xml = (string) preg_replace('/>\s+</u', '><', trim($xml));
+        $this->assertWellFormed($xml);
+
+        return $xml;
+    }
+
     public function contentHash(string $title, string $storage): string
     {
         return hash('sha256', $title . "\n" . $storage);

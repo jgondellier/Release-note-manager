@@ -10,6 +10,18 @@
     <div class="actions">{% if not release.archived %}<a class="btn btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}</div>
 </div>
 
+{% set containers = release.containers %}
+{% if containers is not empty %}
+<section class="card">
+    <h2>Pages de regroupement</h2>
+    <ul>
+        {% for c in containers %}
+            <li>{{ c.target.label }} : <a href="{{ c.confluencePageUrl }}" target="_blank" rel="noopener noreferrer">{{ c.pageTitle }} ↗</a> <span class="small muted">(page n°{{ c.confluencePageId }}, version {{ c.confluencePageVersion }})</span></li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
 <section class="card">
     <h2>Statut par cible</h2>
     <div class="table-wrap">

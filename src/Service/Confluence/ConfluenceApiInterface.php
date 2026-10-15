@@ -31,5 +31,6 @@ interface ConfluenceApiInterface
 
     public function createPage(ExternalConnection $connection, string $spaceKey, ?string $parentId, string $title, string $storage): ConfluencePage;
 
-    public function updatePage(ExternalConnection $connection, ConfluencePage $current, string $title, string $storage): ConfluencePage;
+    /** @param string|null $parentId si fourni, la page est (re)placée sous ce parent */
+    public function updatePage(ExternalConnection $connection, ConfluencePage $current, string $title, string $storage, ?string $parentId = null): ConfluencePage;
 }

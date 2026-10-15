@@ -1,0 +1,14 @@
+{% import 'render/confluence/_macros.xml.twig' as c %}
+{% set meta %}
+<p><strong>Projet :</strong> {{ release.project.name }} · <strong>Version :</strong> {{ release.jiraVersionName }}{% if release.releaseDate %} · <strong>Mise en production :</strong> {{ release.releaseDate|date('d/m/Y') }}{% endif %}</p>
+<p>Cette page regroupe les release notes de la version, déclinées par public :</p>
+<ul>
+<li><strong>Release note IT</strong> — développeurs, exploitation, support et équipes IT</li>
+<li><strong>Release note fonctionnelle</strong> — Product Owners, métiers, support fonctionnel</li>
+<li><strong>Nouveautés</strong> — utilisateurs opérationnels</li>
+</ul>
+{% endset %}
+{{ c.panel(release.title, meta, '#F4F5F7', '#2451B7') }}
+<h2>Release notes de la version</h2>
+<ac:structured-macro ac:name="children"><ac:parameter ac:name="all">true</ac:parameter><ac:parameter ac:name="sort">title</ac:parameter></ac:structured-macro>
+<hr /><p><sub>Page générée par Release Note Manager. Les modifications manuelles de cette page peuvent être remplacées lors d'une prochaine publication.</sub></p>

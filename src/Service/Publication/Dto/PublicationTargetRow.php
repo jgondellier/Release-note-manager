@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service\Publication\Dto;
 
 use App\Entity\Publication;
+use App\Entity\PublicationContainer;
 use App\Enum\PublicationFormat;
 use App\Enum\PublicationTarget;
 
@@ -22,6 +23,8 @@ final class PublicationTargetRow
         public readonly ?string $spaceKey,
         public readonly ?string $parentPageId,
         public readonly string $pageTitle,
+        public readonly string $containerTitle,
+        public readonly ?PublicationContainer $container,
         public readonly ?Publication $publication,
         public readonly bool $outdated,
     ) {
@@ -35,6 +38,16 @@ final class PublicationTargetRow
     public static function buildKey(PublicationFormat $format, PublicationTarget $target): string
     {
         return $format->value . ':' . $target->value;
+    }
+
+    /** Emplacement de la page : sous la page de regroupement de la release. */
+    public function locationLabel(): string
+    {
+        $location = null !== $this->container
+            ? sprintf('sous « %s » (page n°%s)', $this->containerTitle, $this->container->getConfluencePageId())
+            : sprintf('sous « %s » (créée à la première publication)', $this->containerTitle);
+
+        return $location . (null !== $this->parentPageId ? sprintf(', elle-même sous la page %s', $this->parentPageId) : ', à la racine de l\'espace');
     }
 
     /** Résultat attendu, affiché sur l'écran de confirmation. */

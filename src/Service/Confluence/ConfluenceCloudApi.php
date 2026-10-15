@@ -95,15 +95,20 @@ final class ConfluenceCloudApi implements ConfluenceApiInterface
         return $this->toPage($connection, $this->client->post($connection, $this->path($connection, '/api/v2/pages'), $body));
     }
 
-    public function updatePage(ExternalConnection $connection, ConfluencePage $current, string $title, string $storage): ConfluencePage
+    public function updatePage(ExternalConnection $connection, ConfluencePage $current, string $title, string $storage, ?string $parentId = null): ConfluencePage
     {
-        $data = $this->client->put($connection, $this->path($connection, '/api/v2/pages/' . rawurlencode($current->id)), [
+        $body = [
             'id' => $current->id,
             'status' => 'current',
             'title' => $title,
             'body' => ['representation' => 'storage', 'value' => $storage],
             'version' => ['number' => $current->version + 1, 'message' => 'Publication Release Note Manager'],
-        ]);
+        ];
+        if (null !== $parentId) {
+            // API v2 : parentId dans la mise à jour déplace la page sous ce parent.
+            $body['parentId'] = $parentId;
+        }
+        $data = $this->client->put($connection, $this->path($connection, '/api/v2/pages/' . rawurlencode($current->id)), $body);
 
         return $this->toPage($connection, $data);
     }

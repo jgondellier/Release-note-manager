@@ -6,11 +6,14 @@ namespace App\Service\Publication;
 
 use App\Entity\Publication;
 use App\Entity\PublicationAttempt;
+use App\Entity\PublicationContainer;
 use App\Entity\Release;
 use App\Enum\PublicationFormat;
 use App\Enum\PublicationStatus;
 use App\Enum\PublicationTarget;
 use App\Enum\ReleaseStatus;
+use App\Entity\ExternalConnection;
+use App\Service\Confluence\ConfluenceApiResolver;
 use App\Service\Confluence\ConfluencePagePublisher;
 use App\Service\Confluence\Dto\PagePublishResult;
 use App\Service\Http\ExternalApiException;
@@ -30,6 +33,8 @@ use Symfony\Component\Lock\LockFactory;
  * - Le mapping Publication (release, format, cible) conserve l'identifiant de page :
  *   une republication met à jour la même page.
  * - Chaque tentative est historisée (PublicationAttempt) sans aucun secret.
+ * - Sur chaque instance, les trois pages sont rangées sous une page de regroupement
+ *   de la release (PublicationContainer), elle-même placée sous la page parente du projet.
  */
 class PublicationService
 {
@@ -39,8 +44,12 @@ class PublicationService
         private readonly EntityManagerInterface $em,
         private readonly LockFactory $lockFactory,
         private readonly LoggerInterface $publicationLogger,
+        private readonly ConfluenceApiResolver $apiResolver,
     ) {
     }
+
+    /** @var array<string, true> pages de regroupement déjà vérifiées pendant cette exécution */
+    private array $verifiedContainers = [];
 
     /** @return list<PublicationTargetRow> les 6 combinaisons possibles, disponibles ou non */
     public function getTargetMatrix(Release $release): array
@@ -70,6 +79,8 @@ class PublicationService
                     spaceKey: $project->getConfluenceSpaceKey($target),
                     parentPageId: $project->getConfluenceParentPageId($target),
                     pageTitle: $title,
+                    containerTitle: $this->renderer->containerTitle($release),
+                    container: $release->findContainer($target),
                     publication: $publication,
                     outdated: null !== $publication && null !== $publication->getContentHash() && $this->isOutdated($release, $format, $publication),
                 );
@@ -147,11 +158,12 @@ class PublicationService
             $started = microtime(true);
 
             try {
+                $containerId = $this->ensureContainer($release, $row, $connection);
                 $storage = $this->renderer->renderStorage($release, $row->format);
                 $result = $this->publisher->publish(
                     $connection,
                     $row->spaceKey,
-                    $row->parentPageId,
+                    $containerId,
                     $publication->getConfluencePageId(),
                     $row->pageTitle,
                     $storage
@@ -174,6 +186,60 @@ class PublicationService
                 // Erreur inattendue : message générique côté utilisateur, détail technique dans les journaux.
                 return $this->fail($release, $row, $publication, 'Erreur interne lors de la publication (voir les journaux applicatifs).', $started, $e);
             }
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Garantit l'existence de la page de regroupement de la release sur l'instance et
+     * retourne son identifiant. Elle n'est republiée que si elle a disparu ou si son
+     * contenu a changé (pas de nouvelle version Confluence à chaque publication).
+     */
+    private function ensureContainer(Release $release, PublicationTargetRow $row, ExternalConnection $connection): string
+    {
+        $key = $release->getId() . ':' . $row->target->value;
+        $container = $release->findContainer($row->target);
+        $title = $this->renderer->containerTitle($release);
+        $storage = $this->renderer->renderContainerStorage($release);
+        $hash = $this->renderer->contentHash($title, $storage);
+
+        if (null !== $container && isset($this->verifiedContainers[$key]) && $container->getContentHash() === $hash) {
+            return $container->getConfluencePageId();
+        }
+
+        $lock = $this->lockFactory->createLock('publication-container-' . str_replace(':', '-', $key), Publication::STALE_AFTER_SECONDS);
+        $lock->acquire(true);
+        try {
+            if (null !== $container && $container->getContentHash() === $hash
+                && null !== $this->apiResolver->for($connection)->getPage($connection, $container->getConfluencePageId())) {
+                $this->verifiedContainers[$key] = true;
+
+                return $container->getConfluencePageId();
+            }
+
+            $result = $this->publisher->publish(
+                $connection,
+                (string) $row->spaceKey,
+                $row->parentPageId,
+                $container?->getConfluencePageId(),
+                $title,
+                $storage
+            );
+            if (null === $container) {
+                $container = new PublicationContainer($row->target, $result->page->id, $result->page->url, $title, $result->page->version, $hash);
+                $release->addContainer($container);
+                $this->em->persist($container);
+            } else {
+                $container->update($result->page->id, $result->page->url, $title, $result->page->version, $hash);
+            }
+            $this->em->flush();
+            $this->verifiedContainers[$key] = true;
+            $this->publicationLogger->info('Page de regroupement publiée', $this->context($release, $row) + ['page_id' => $result->page->id, 'action' => $result->action]);
+
+            return $result->page->id;
+        } catch (ExternalApiException $e) {
+            throw new ExternalApiException('Page de regroupement « ' . $title . ' » : ' . $e->getMessage(), $e->getCategory(), $e->getHttpStatus(), $e);
         } finally {
             $lock->release();
         }
