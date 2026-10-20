@@ -233,10 +233,10 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         $this->em->flush();
         $coverage = [
             'CCS-2' => ['issueKey' => 'CCS-2', 'status' => 'hasData', 'octaneEntity' => ['fields' => ['id' => '4012', 'name' => 'Créer un client', 'testTabUrl' => 'https://octane.local/tests/4012']], 'totalTestsCount' => 5, 'totalExecutedTestsCount' => 4,
-                'coverageGroups' => [['fields' => ['id' => 'passed', 'name' => 'Passed', 'count' => 3, 'order' => 1]], ['fields' => ['id' => 'failed', 'name' => 'Failed', 'count' => 1, 'order' => 2]]]],
+                'coverageGroups' => [['fields' => ['id' => 'run_status_passed', 'name' => 'Passed', 'count' => 3, 'order' => 1]], ['fields' => ['id' => 'run_status_failed', 'name' => 'Failed', 'count' => 1, 'order' => 2]]]],
             'CCS-3' => ['issueKey' => 'CCS-3', 'status' => 'noData'],
             'CCS-6' => ['issueKey' => 'CCS-6', 'status' => 'hasData', 'octaneEntity' => ['fields' => ['id' => '4013']], 'totalTestsCount' => 1, 'totalExecutedTestsCount' => 1,
-                'coverageGroups' => [['fields' => ['id' => 'passed', 'name' => 'Passed', 'count' => 1, 'order' => 1]]]],
+                'coverageGroups' => [['fields' => ['id' => 'run_status_passed', 'name' => 'Passed', 'count' => 1, 'order' => 1]]]],
         ];
         $this->server
             ->on('GET', '/rest/octane-coverage/1.0/coverage/octane-workspaces', static fn () => [['id' => '15344388-6de8-4969-b5a9-3ee35b9ae8bb', 'spaceConfigId' => 'x', 'octaneWorkspaces' => [['id' => '168001', 'name' => 'Courtage']]]])

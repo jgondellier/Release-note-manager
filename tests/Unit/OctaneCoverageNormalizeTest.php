@@ -19,9 +19,10 @@ final class OctaneCoverageNormalizeTest extends TestCase
             'totalTestsCount' => 6,
             'totalExecutedTestsCount' => 5,
             'coverageGroups' => [
-                ['fields' => ['id' => 'failed', 'name' => 'Failed', 'count' => 1, 'percentage' => '20%', 'order' => 2]],
-                ['fields' => ['id' => 'passed', 'name' => 'Passed', 'count' => 4, 'percentage' => '80%', 'order' => 1]],
-                ['fields' => ['id' => 'skipped', 'name' => 'Skipped', 'count' => 0, 'order' => 5]],
+                // Identifiants réels de l'extension : clé « run_status_* » de TestStatusDescriptor.
+                ['fields' => ['id' => 'run_status_failed', 'name' => 'Failed', 'count' => 1, 'percentage' => '20%', 'order' => 2, 'color' => '#e5004c']],
+                ['fields' => ['id' => 'run_status_passed', 'name' => 'Passed', 'count' => 4, 'percentage' => '80%', 'order' => 1, 'color' => '#1aac60']],
+                ['fields' => ['id' => 'run_status_skipped', 'name' => 'Skipped', 'count' => 0, 'order' => 5]],
             ],
         ]);
 
@@ -82,5 +83,30 @@ final class OctaneCoverageNormalizeTest extends TestCase
             ['id' => 'failed', 'name' => 'Failed', 'count' => 1, 'percent' => 12.5],
             ['id' => 'none', 'name' => 'Sans passage', 'count' => 2, 'percent' => 25.0],
         ], $rows);
+    }
+
+    public function testStatusIdentifiersFromAllPluginVersionsAreRecognised(): void
+    {
+        foreach ([
+            'run_status_passed' => 'passed', 'run_status_failed' => 'failed', 'run_status_planned' => 'planned',
+            'run_status_requires_attention' => 'needsAttention', 'run_status_skipped' => 'skipped',
+            'list_node.run_status.failed' => 'failed', 'passed' => 'passed', 'needsAttention' => 'needsAttention',
+        ] as $raw => $expected) {
+            self::assertSame($expected, OctaneCoverageService::canonicalStatus($raw), $raw);
+        }
+    }
+
+    public function testAlreadyStoredSnapshotsWithRawIdentifiersAreColouredCorrectly(): void
+    {
+        // Instantané enregistré avant la correction : identifiants bruts « run_status_* ».
+        $stored = ['status' => 'hasData', 'totalTests' => 3, 'executedTests' => 3, 'groups' => [
+            ['id' => 'run_status_passed', 'name' => 'Passed', 'count' => 2, 'percentage' => null],
+            ['id' => 'run_status_failed', 'name' => 'Failed', 'count' => 1, 'percentage' => null],
+        ]];
+        self::assertSame('failed', OctaneCoverageService::health($stored));
+        self::assertSame(['passed', 'failed'], array_column(OctaneCoverageService::canonicalize($stored)['groups'], 'id'));
+
+        $report = (new \App\Entity\AcceptanceReport())->recordJiraSnapshot(['scope' => [['key' => 'A-1', 'coverage' => $stored]], 'coverage' => OctaneCoverageService::aggregate([$stored])]);
+        self::assertSame(['passed', 'failed'], array_column($report->getScopeItems()[0]['coverage']['groups'], 'id'));
     }
 }

@@ -7,6 +7,7 @@ namespace App\Entity;
 use App\Enum\AcceptanceDecision;
 use App\Enum\AcceptanceDocumentStatus;
 use App\Repository\AcceptanceReportRepository;
+use App\Service\Jira\OctaneCoverageService;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -487,7 +488,14 @@ class AcceptanceReport
     /** @return list<array<string, mixed>> */
     public function getScopeItems(): array
     {
-        return array_values((array) ($this->jiraSnapshot['scope'] ?? []));
+        // Identifiants de statut Octane normalisés, y compris pour les instantanés déjà enregistrés.
+        return array_map(static function ($item) {
+            if (\is_array($item) && \is_array($item['coverage'] ?? null)) {
+                $item['coverage'] = OctaneCoverageService::canonicalize($item['coverage']);
+            }
+
+            return $item;
+        }, array_values((array) ($this->jiraSnapshot['scope'] ?? [])));
     }
 
     /** @return array<string, mixed>|null couverture Octane cumulée (null si non activée) */
@@ -495,7 +503,7 @@ class AcceptanceReport
     {
         $coverage = $this->jiraSnapshot['coverage'] ?? null;
 
-        return \is_array($coverage) ? $coverage : null;
+        return \is_array($coverage) ? OctaneCoverageService::canonicalize($coverage) : null;
     }
 
     public function getCoverageError(): ?string

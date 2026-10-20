@@ -89,7 +89,7 @@ class OctaneCoverageService
                 continue;
             }
             $groups[] = [
-                'id' => (string) ($g['id'] ?? ''),
+                'id' => self::canonicalStatus((string) ($g['id'] ?? $g['name'] ?? '')),
                 'name' => (string) ($g['name'] ?? $g['id'] ?? '?'),
                 'count' => $count,
                 'percentage' => isset($g['percentage']) ? (string) $g['percentage'] : null,
@@ -121,6 +121,7 @@ class OctaneCoverageService
         $executed = 0;
         $withData = 0;
         foreach ($coverages as $coverage) {
+            $coverage = self::canonicalize($coverage);
             if ('hasData' !== ($coverage['status'] ?? null)) {
                 continue;
             }
@@ -134,6 +135,50 @@ class OctaneCoverageService
         }
 
         return ['withData' => $withData, 'totalTests' => $total, 'executedTests' => $executed, 'groups' => array_values($groups)];
+    }
+
+    /**
+     * Identifiant canonique d'un statut de passage. L'extension renvoie « run_status_passed »
+     * (clé), d'autres versions « passed » (clé de couverture) ou « list_node.run_status.passed ».
+     */
+    public static function canonicalStatus(string $id): string
+    {
+        $normalized = strtolower((string) preg_replace('/^(list_node\.)?run_(native_)?status[._]/i', '', trim($id)));
+
+        return match (str_replace([' ', '-', '_'], '', $normalized)) {
+            'passed' => 'passed',
+            'failed' => 'failed',
+            'requiresattention', 'needsattention' => 'needsAttention',
+            'planned' => 'planned',
+            'skipped' => 'skipped',
+            default => '' !== $normalized ? $normalized : 'unknown',
+        };
+    }
+
+    /**
+     * Applique canonicalStatus() aux groupes d'une couverture (données déjà enregistrées comprises).
+     *
+     * @param array<string, mixed>|null $coverage
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function canonicalize(?array $coverage): ?array
+    {
+        if (null === $coverage || !isset($coverage['groups']) || !\is_array($coverage['groups'])) {
+            return $coverage;
+        }
+        $merged = [];
+        foreach ($coverage['groups'] as $g) {
+            $id = self::canonicalStatus((string) ($g['id'] ?? ''));
+            if (isset($merged[$id])) {
+                $merged[$id]['count'] += (int) $g['count'];
+            } else {
+                $merged[$id] = ['id' => $id] + $g;
+            }
+        }
+        $coverage['groups'] = array_values($merged);
+
+        return $coverage;
     }
 
     public const HEALTH_LEVELS = [
@@ -151,6 +196,7 @@ class OctaneCoverageService
      */
     public static function health(?array $coverage): string
     {
+        $coverage = self::canonicalize($coverage);
         if (null === $coverage || 'hasData' !== ($coverage['status'] ?? null) || (int) ($coverage['totalTests'] ?? 0) <= 0) {
             return 'none';
         }
