@@ -97,6 +97,20 @@ class Project
     #[Assert\Regex(pattern: '/^\d+$/', message: "L'identifiant de page parente est numérique.")]
     private ?string $confluenceServerAcceptanceParentPageId = null;
 
+    /** Couverture de tests Octane via l'extension Jira « Core Software Delivery Platform » (octane-coverage). */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $octaneCoverageEnabled = false;
+
+    /** Identifiant de configuration d'espace Octane (workspace-config-id) ; vide = découverte automatique. */
+    #[ORM\Column(length: 100, nullable: true)]
+    #[Assert\Regex(pattern: '/^[A-Za-z0-9-]+$/', message: 'Identifiant de configuration invalide.')]
+    private ?string $octaneWorkspaceConfigId = null;
+
+    /** Identifiant d'espace de travail Octane (workspace-id) ; vide = découverte automatique. */
+    #[ORM\Column(length: 50, nullable: true)]
+    #[Assert\Regex(pattern: '/^\d+$/', message: "L'identifiant d'espace de travail Octane est numérique.")]
+    private ?string $octaneWorkspaceId = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastCheckedAt = null;
 
@@ -122,6 +136,10 @@ class Project
     #[Assert\Callback]
     public function validateConnections(ExecutionContextInterface $context): void
     {
+        if ((null === $this->octaneWorkspaceConfigId) !== (null === $this->octaneWorkspaceId)) {
+            $context->buildViolation('Renseignez les deux identifiants Octane, ou aucun (découverte automatique).')
+                ->atPath('octaneWorkspaceId')->addViolation();
+        }
         if (null !== $this->jiraConnection && ConnectionProvider::Jira !== $this->jiraConnection->getProvider()) {
             $context->buildViolation("La connexion choisie n'est pas une connexion Jira.")
                 ->atPath('jiraConnection')->addViolation();
@@ -327,6 +345,42 @@ class Project
     public function getConfluenceAcceptanceParentPageId(PublicationTarget $target): ?string
     {
         return PublicationTarget::Cloud === $target ? $this->confluenceCloudAcceptanceParentPageId : $this->confluenceServerAcceptanceParentPageId;
+    }
+
+    public function isOctaneCoverageEnabled(): bool
+    {
+        return $this->octaneCoverageEnabled;
+    }
+
+    public function setOctaneCoverageEnabled(bool $enabled): static
+    {
+        $this->octaneCoverageEnabled = $enabled;
+
+        return $this;
+    }
+
+    public function getOctaneWorkspaceConfigId(): ?string
+    {
+        return $this->octaneWorkspaceConfigId;
+    }
+
+    public function setOctaneWorkspaceConfigId(?string $id): static
+    {
+        $this->octaneWorkspaceConfigId = self::nullIfBlank($id);
+
+        return $this;
+    }
+
+    public function getOctaneWorkspaceId(): ?string
+    {
+        return $this->octaneWorkspaceId;
+    }
+
+    public function setOctaneWorkspaceId(?string $id): static
+    {
+        $this->octaneWorkspaceId = self::nullIfBlank($id);
+
+        return $this;
     }
 
     public function getConfluenceConnection(PublicationTarget $target): ?ExternalConnection

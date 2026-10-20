@@ -30,6 +30,7 @@
     </div>
 </div>
 
+{% if report.coverageError %}<div class="alert alert-warning"><strong>Couverture Octane :</strong> {{ report.coverageError }}</div>{% endif %}
 {% if report.jiraSyncError %}<div class="alert alert-danger"><strong>Dernière lecture Jira en échec :</strong> {{ report.jiraSyncError }}</div>{% endif %}
 
 <section class="card">

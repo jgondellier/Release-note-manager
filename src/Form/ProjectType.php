@@ -43,6 +43,20 @@ final class ProjectType extends AbstractType
                 'label' => 'Clé du projet Jira',
                 'attr' => ['placeholder' => 'CCS', 'maxlength' => 50, 'style' => 'text-transform:uppercase'],
             ])
+            ->add('octaneCoverageEnabled', CheckboxType::class, [
+                'label' => 'Reprendre la couverture de tests Octane dans les PV de recette',
+                'required' => false,
+                'help' => 'Nécessite l\'extension Jira « Core Software Delivery Platform » (encart « test coverage »). Les données sont lues avec la connexion Jira du projet.',
+            ])
+            ->add('octaneWorkspaceConfigId', TextType::class, [
+                'label' => 'Octane — workspace-config-id (facultatif)',
+                'required' => false,
+                'help' => 'Laisser vide : découverte automatique, comme l\'encart Jira. À renseigner si plusieurs espaces Octane sont proposés.',
+            ])
+            ->add('octaneWorkspaceId', TextType::class, [
+                'label' => 'Octane — workspace-id (facultatif)',
+                'required' => false,
+            ])
             ->add('confluenceCloudConnection', EntityType::class, [
                 'class' => ExternalConnection::class,
                 'label' => 'Connexion Confluence Cloud',

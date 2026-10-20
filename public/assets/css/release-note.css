@@ -124,3 +124,12 @@
 .rn-open-title { color: #bf2600 !important; }
 .rn-done-title { color: #006644 !important; }
 .rn-table-open th { background: #ffebe6; }
+
+/* Couverture Octane */
+.rn-cov { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .25rem; }
+.rn-cov-badge { font-size: .72rem; font-weight: 700; border-radius: 3px; padding: .1rem .45rem; background: #dfe1e6; color: #42526e; white-space: nowrap; }
+.rn-cov-passed { background: #e3fcef; color: #006644; }
+.rn-cov-failed { background: #ffebe6; color: #bf2600; }
+.rn-cov-needsAttention { background: #fffae6; color: #7a5d00; }
+.rn-cov-planned { background: #e6fcff; color: #00687a; }
+.rn-cov-skipped { background: #eae6ff; color: #403294; }

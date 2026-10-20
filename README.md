@@ -322,6 +322,14 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
      du périmètre, même sans la Fix Version (relues dans Jira, sans doublon). Elles sont présentées en deux
      tableaux, **non terminées** puis **terminées**, avec leur origine (« Version » ou « Liée à FIN-101
      (est bloqué par) »). Un commentaire libre complète la synthèse calculée.
+   - **Couverture de tests Octane** (si activée dans le projet) : pour chaque fiche du périmètre, nombre de
+     tests liés dans Octane (lien vers l'onglet Tests) et résultats des derniers passages (Passed, Failed,
+     Requires Attention, Planned, Skipped, sans passage), plus un total. Les données sont lues via l'API de
+     l'extension Jira « Core Software Delivery Platform » (`/rest/octane-coverage/1.0/coverage`, celle de
+     l'encart « test coverage »), avec la connexion Jira du projet : aucune clé Octane n'est nécessaire.
+     L'espace Octane est découvert automatiquement comme dans l'encart ; s'il y en a plusieurs, renseignez
+     `workspace-config-id` et `workspace-id` dans le projet (valeurs visibles dans l'appel de l'encart, onglet
+     Réseau du navigateur). Une indisponibilité de l'extension est signalée sans bloquer l'actualisation.
    - **Réserves par défaut** : liste des anomalies non terminées, mise à jour à chaque actualisation tant
      que vous n'avez pas modifié ce texte (un texte modifié n'est jamais remplacé).
    L'écran signale les fiches du périmètre sans commentaire de test.
@@ -340,7 +348,7 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 69 tests (unitaires, intégration, fonctionnels)
+php vendor/bin/phpunit                 # 74 tests (unitaires, intégration, fonctionnels)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional

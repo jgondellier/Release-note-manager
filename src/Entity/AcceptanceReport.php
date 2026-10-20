@@ -490,6 +490,21 @@ class AcceptanceReport
         return array_values((array) ($this->jiraSnapshot['scope'] ?? []));
     }
 
+    /** @return array<string, mixed>|null couverture Octane cumulée (null si non activée) */
+    public function getCoverageSummary(): ?array
+    {
+        $coverage = $this->jiraSnapshot['coverage'] ?? null;
+
+        return \is_array($coverage) ? $coverage : null;
+    }
+
+    public function getCoverageError(): ?string
+    {
+        $error = $this->jiraSnapshot['coverageError'] ?? null;
+
+        return \is_string($error) ? $error : null;
+    }
+
     /** @return list<array<string, mixed>> */
     public function getTestItems(): array
     {

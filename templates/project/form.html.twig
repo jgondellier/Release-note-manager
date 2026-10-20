@@ -20,6 +20,9 @@
         {{ form_row(form.jiraConnection) }}
         {{ form_row(form.jiraProjectKey) }}
         <p class="small muted">Les tickets importés sont ceux de ce projet portant la Fix Version choisie.</p>
+        <h3>Couverture de tests Octane</h3>
+        {{ form_row(form.octaneCoverageEnabled) }}
+        <div class="grid grid-2 compact">{{ form_row(form.octaneWorkspaceConfigId) }}{{ form_row(form.octaneWorkspaceId) }}</div>
     </section>
     <section class="card">
         <h2>Confluence Cloud</h2>

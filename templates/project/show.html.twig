@@ -24,6 +24,7 @@
         <dl class="dl">
             <dt>Connexion</dt><dd>{% if project.jiraConnection %}<a href="{{ path('connection_show', {id: project.jiraConnection.id}) }}">{{ project.jiraConnection.name }}</a>{% else %}—{% endif %}</dd>
             <dt>Clé projet</dt><dd>{{ project.jiraProjectKey }}</dd>
+            <dt>Couverture Octane</dt><dd>{% if project.octaneCoverageEnabled %}Activée{{ project.octaneWorkspaceId ? ' (espace ' ~ project.octaneWorkspaceId ~ ')' : ' (découverte automatique)' }}{% else %}Désactivée{% endif %}</dd>
         </dl>
     </section>
     {% for target in ['cloud', 'server'] %}

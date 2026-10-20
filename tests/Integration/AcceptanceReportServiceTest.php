@@ -226,6 +226,62 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         self::assertSame('CCS 2.4.0 — Release notes', $created[1]['title'], 'Les release notes gardent leur page de regroupement');
     }
 
+    public function testOctaneCoverageIsReadThroughTheJiraPlugin(): void
+    {
+        $release = $this->prepare();
+        $release->getProject()->setOctaneCoverageEnabled(true);
+        $this->em->flush();
+        $coverage = [
+            'CCS-2' => ['issueKey' => 'CCS-2', 'status' => 'hasData', 'octaneEntity' => ['fields' => ['id' => '4012', 'name' => 'Créer un client', 'testTabUrl' => 'https://octane.local/tests/4012']], 'totalTestsCount' => 5, 'totalExecutedTestsCount' => 4,
+                'coverageGroups' => [['fields' => ['id' => 'passed', 'name' => 'Passed', 'count' => 3, 'order' => 1]], ['fields' => ['id' => 'failed', 'name' => 'Failed', 'count' => 1, 'order' => 2]]]],
+            'CCS-3' => ['issueKey' => 'CCS-3', 'status' => 'noData'],
+            'CCS-6' => ['issueKey' => 'CCS-6', 'status' => 'hasData', 'octaneEntity' => ['fields' => ['id' => '4013']], 'totalTestsCount' => 1, 'totalExecutedTestsCount' => 1,
+                'coverageGroups' => [['fields' => ['id' => 'passed', 'name' => 'Passed', 'count' => 1, 'order' => 1]]]],
+        ];
+        $this->server
+            ->on('GET', '/rest/octane-coverage/1.0/coverage/octane-workspaces', static fn () => [['id' => '15344388-6de8-4969-b5a9-3ee35b9ae8bb', 'spaceConfigId' => 'x', 'octaneWorkspaces' => [['id' => '168001', 'name' => 'Courtage']]]])
+            ->on('GET', '/rest/octane-coverage/1.0/coverage', static fn (array $b, string $url, array $q) => $coverage[$q['issue-key']]);
+
+        $service = $this->service(AcceptanceReportService::class);
+        $report = $service->create($release);
+        $service->refreshFromJira($report);
+
+        $calls = $this->server->requestsMatching('GET', '/rest/octane-coverage/1.0/coverage?');
+        self::assertCount(3, $calls);
+        parse_str((string) parse_url($calls[0]['url'], PHP_URL_QUERY), $q);
+        self::assertSame(['project-key' => 'CCS', 'issue-key' => 'CCS-2', 'issue-id' => '90002', 'workspace-config-id' => '15344388-6de8-4969-b5a9-3ee35b9ae8bb', 'workspace-id' => '168001'], $q);
+        self::assertCount(2, $this->server->requestsMatching('GET', 'octane-workspaces'), 'Découverte mise en cache par type de ticket (Story, Task)');
+
+        self::assertSame(['withData' => 2, 'totalTests' => 6, 'executedTests' => 5, 'groups' => [['id' => 'passed', 'name' => 'Passed', 'count' => 4], ['id' => 'failed', 'name' => 'Failed', 'count' => 1]]], $report->getCoverageSummary());
+        self::assertNull($report->getCoverageError());
+
+        $renderer = $this->service(ReleaseNoteRenderer::class);
+        $web = $renderer->renderWeb($release, PublicationFormat::AcceptanceReport);
+        self::assertStringContainsString('<strong>6 tests</strong> liés à 2 fiches sur 3', $web);
+        self::assertStringContainsString('Aucune entité Octane', $web);
+        self::assertStringContainsString('1 sans passage', $web);
+        $storage = $renderer->renderStorage($release, PublicationFormat::AcceptanceReport);
+        $renderer->assertWellFormed($storage);
+        self::assertStringContainsString('<ac:parameter ac:name="title">3 Passed</ac:parameter>', $storage);
+        self::assertStringContainsString('<a href="https://octane.local/tests/4012">5 tests</a>', $storage);
+    }
+
+    public function testMissingOctanePluginDoesNotBlockRefresh(): void
+    {
+        $release = $this->prepare();
+        $release->getProject()->setOctaneCoverageEnabled(true)->setOctaneWorkspaceConfigId('cfg')->setOctaneWorkspaceId('1');
+        $this->em->flush();
+
+        $service = $this->service(AcceptanceReportService::class);
+        $report = $service->create($release);
+        $counts = $service->refreshFromJira($report);
+
+        self::assertSame(3, $counts['scope']);
+        self::assertStringContainsString('introuvable', (string) $report->getCoverageError());
+        self::assertCount(1, $this->server->requestsMatching('GET', '/rest/octane-coverage/'), 'Arrêt après la première erreur 404');
+        self::assertCount(0, $this->server->requestsMatching('GET', 'octane-workspaces'), 'Identifiants forcés : pas de découverte');
+    }
+
     public function testFinalReportRequiresDecisionAndReservesWhenNeeded(): void
     {
         $validator = self::getContainer()->get('validator');

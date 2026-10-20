@@ -6,6 +6,7 @@ namespace App\Service\AcceptanceReport;
 
 use App\Entity\AcceptanceReport;
 use App\Entity\ExternalConnection;
+use App\Entity\Project;
 use App\Entity\Release;
 use App\Enum\SectionCategory;
 use App\Repository\AcceptanceReportRepository;
@@ -16,6 +17,7 @@ use App\Service\Jira\JiraCommentService;
 use App\Service\Jira\JiraIssueService;
 use App\Service\Jira\JiraJqlBuilder;
 use App\Service\Jira\JiraVersionService;
+use App\Service\Jira\OctaneCoverageService;
 use App\Service\ReleaseNote\Dto\IssueTypeRuleSet;
 use App\Service\ReleaseNote\IssueTypeMappingResolver;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,6 +43,7 @@ class AcceptanceReportService
         private readonly JiraCommentService $commentService,
         private readonly IssueTypeMappingResolver $mappingResolver,
         private readonly EntityManagerInterface $em,
+        private readonly OctaneCoverageService $coverageService,
     ) {
     }
 
@@ -144,10 +147,15 @@ class AcceptanceReportService
                 $report->setReserves($defaultReserves);
             }
 
+            $scopeItems = array_map($this->item(...), $scope);
+            [$scopeItems, $coverage, $coverageError] = $this->coverage($project, $scope, $scopeItems);
+
             $snapshot = [
                 'versionName' => $version->name,
                 'jql' => JiraJqlBuilder::forFixVersion($project->getJiraProjectKey(), $version->id),
-                'scope' => array_map($this->item(...), $scope),
+                'scope' => $scopeItems,
+                'coverage' => $coverage,
+                'coverageError' => $coverageError,
                 'tests' => $tests,
                 'anomalies' => $anomalyItems,
                 'defaultReserves' => $defaultReserves,
@@ -219,6 +227,38 @@ class AcceptanceReportService
         $list = array_values($items);
         usort($list, static fn (array $a, array $b) => [('done' === $a['statusCategory']) ? 1 : 0, $a['key']] <=> [('done' === $b['statusCategory']) ? 1 : 0, $b['key']]);
         return array_map(static fn (array $item) => ['linkedFrom' => array_values(array_unique($item['linkedFrom']))] + $item, $list);
+    }
+
+    /**
+     * Couverture de tests Octane de chaque fiche du périmètre (si activée sur le projet).
+     * Une erreur n'interrompt pas l'actualisation : elle est mémorisée et affichée.
+     *
+     * @param list<JiraIssue>            $scope
+     * @param list<array<string, mixed>> $items
+     *
+     * @return array{0: list<array<string, mixed>>, 1: ?array<string, mixed>, 2: ?string}
+     */
+    private function coverage(Project $project, array $scope, array $items): array
+    {
+        if (!$project->isOctaneCoverageEnabled()) {
+            return [$items, null, null];
+        }
+        $error = null;
+        foreach ($scope as $i => $issue) {
+            try {
+                $items[$i]['coverage'] = $this->coverageService->getCoverage($project, $issue);
+            } catch (ExternalApiException $e) {
+                $items[$i]['coverage'] = null;
+                $error ??= $e->isNotFound()
+                    ? 'Extension Jira de couverture Octane introuvable (API /rest/octane-coverage absente).'
+                    : $e->getMessage();
+                if ($e->isNotFound() || ExternalApiException::AUTHENTICATION === $e->getCategory()) {
+                    break; // inutile d'insister pour les fiches suivantes
+                }
+            }
+        }
+
+        return [$items, OctaneCoverageService::aggregate(array_values(array_filter(array_column($items, 'coverage')))), $error];
     }
 
     /** @param list<array<string, mixed>> $anomalies */
