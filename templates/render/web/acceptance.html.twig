@@ -76,14 +76,34 @@
             <div class="rn-summary-item rn-cat-fix"><strong>{{ anomalies|length }}</strong> anomalie(s)</div>
         </div>
         {% if cov_summary is not null %}
-        <div class="rn-box rn-box-info">
-            <div class="rn-box-title">Couverture de tests Octane</div>
+        {% set levels = rn_coverage_levels() %}
+        <div class="rn-coverage-summary">
+            <h4>Couverture de tests Octane</h4>
             {% if cov_summary.withData > 0 %}
-                <p><strong>{{ cov_summary.totalTests }} test{{ cov_summary.totalTests > 1 ? 's' }}</strong> liés à {{ cov_summary.withData }} fiche{{ cov_summary.withData > 1 ? 's' }} sur {{ scope|length }} — derniers passages :</p>
-                <div class="rn-cov">{% for g in cov_summary.groups %}<span class="rn-cov-badge rn-cov-{{ g.id }}">{{ g.count }} {{ g.name }}</span>{% endfor %}{% if cov_summary.totalTests > cov_summary.executedTests %}<span class="rn-cov-badge rn-cov-none">{{ cov_summary.totalTests - cov_summary.executedTests }} sans passage</span>{% endif %}</div>
+                <p><strong>{{ cov_summary.totalTests }} test{{ cov_summary.totalTests > 1 ? 's' }}</strong> liés à {{ cov_summary.withData }} fiche{{ cov_summary.withData > 1 ? 's' }} sur {{ scope|length }}.</p>
+                <table class="rn-table rn-cov-table">
+                    <thead><tr><th>Résultat du dernier passage</th><th class="rn-num-col">Tests</th><th class="rn-num-col">%</th><th class="rn-bar-col"></th></tr></thead>
+                    <tbody>
+                    {% for r in rn_coverage_rows(cov_summary) %}
+                        <tr>
+                            <td><span class="rn-cov-dot rn-cov-{{ r.id }}"></span>{{ r.name }}</td>
+                            <td class="rn-num-col">{{ r.count }}</td>
+                            <td class="rn-num-col">{{ r.percent|number_format(1, ',') }} %</td>
+                            <td class="rn-bar-col"><span class="rn-bar rn-cov-{{ r.id }}" style="width: {{ r.percent }}%"></span></td>
+                        </tr>
+                    {% endfor %}
+                    <tr class="rn-total"><td>Total</td><td class="rn-num-col">{{ cov_summary.totalTests }}</td><td class="rn-num-col">100 %</td><td></td></tr>
+                    </tbody>
+                </table>
             {% else %}
                 <p>Aucune fiche du périmètre n'est liée à des tests dans Octane.</p>
             {% endif %}
+            <div class="rn-health-legend">
+                {% for level, def in levels %}
+                    {% set n = scope|filter(i => rn_coverage_health(i.coverage ?? null) == level)|length %}
+                    <span class="rn-health-chip rn-health-{{ level }}">{{ def.label }} : <strong>{{ n }}</strong> fiche{{ n > 1 ? 's' }}</span>
+                {% endfor %}
+            </div>
             {% if pv.coverageError %}<p class="rn-na">Couverture partielle : {{ pv.coverageError }}</p>{% endif %}
         </div>
         {% endif %}
@@ -96,7 +116,7 @@
                 <thead><tr><th>Clé</th><th>Type</th><th>Résumé</th><th>Statut</th>{% if cov_summary is not null %}<th>Couverture Octane</th>{% endif %}</tr></thead>
                 <tbody>
                 {% for i in scope %}
-                    <tr><td class="rn-nowrap"><a href="{{ i.url }}" target="_blank" rel="noopener noreferrer">{{ i.key }}</a></td><td>{{ i.type }}</td><td>{{ i.summary }}</td><td><span class="rn-status{{ i.statusCategory == 'done' ? ' is-done' }}">{{ i.status }}</span></td>{% if cov_summary is not null %}<td>{{ m.coverage(i.coverage ?? null) }}</td>{% endif %}</tr>
+                    <tr><td class="rn-nowrap"><a href="{{ i.url }}" target="_blank" rel="noopener noreferrer">{{ i.key }}</a></td><td>{{ i.type }}</td><td>{{ i.summary }}</td><td><span class="rn-status{{ i.statusCategory == 'done' ? ' is-done' }}">{{ i.status }}</span></td>{% if cov_summary is not null %}{% set h = rn_coverage_health(i.coverage ?? null) %}<td class="rn-health rn-health-{{ h }}"><span class="rn-health-label">{{ rn_coverage_levels()[h].label }}</span>{{ m.coverage(i.coverage ?? null) }}</td>{% endif %}</tr>
                 {% endfor %}
                 </tbody>
             </table>

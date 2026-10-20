@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Twig;
 
+use App\Service\Jira\OctaneCoverageService;
 use App\Service\ReleaseNote\LinkListParser;
 use App\Service\ReleaseNote\TextFormatter;
 use Twig\Extension\AbstractExtension;
@@ -31,6 +32,10 @@ final class AppExtension extends AbstractExtension
     {
         return [
             new TwigFunction('rn_links', $this->linkParser->parse(...)),
+            // Couverture Octane : code couleur d'une fiche et lignes du résumé.
+            new TwigFunction('rn_coverage_health', OctaneCoverageService::health(...)),
+            new TwigFunction('rn_coverage_levels', static fn () => OctaneCoverageService::HEALTH_LEVELS),
+            new TwigFunction('rn_coverage_rows', OctaneCoverageService::summaryRows(...)),
         ];
     }
 }

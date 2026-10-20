@@ -56,18 +56,30 @@
 <h3>2.2 Description du périmètre</h3>
 <p>{{ c.status(scope|length ~ ' fiche(s) testée(s)', 'Blue') }} {{ c.status(tests|length ~ ' exécution(s) documentée(s)', 'Purple') }} {{ c.status(anomalies|length ~ ' anomalie(s)', anomalies is empty ? 'Green' : 'Red') }}</p>
 {% if cov_summary is not null %}
-{% set covbody %}
-{% if cov_summary.withData > 0 %}<p><strong>{{ cov_summary.totalTests }} test{{ cov_summary.totalTests > 1 ? 's' }}</strong> liés à {{ cov_summary.withData }} fiche{{ cov_summary.withData > 1 ? 's' }} sur {{ scope|length }} — derniers passages :{{ m.cov_badges(cov_summary.groups, cov_summary.totalTests, cov_summary.executedTests) }}</p>{% else %}<p>Aucune fiche du périmètre n'est liée à des tests dans Octane.</p>{% endif %}
+{% set levels = rn_coverage_levels() %}
+{% set colours = {passed: 'Green', failed: 'Red', needsAttention: 'Yellow', planned: 'Blue', skipped: 'Purple', none: 'Grey'} %}
+<h4>Couverture de tests Octane</h4>
+{% if cov_summary.withData > 0 %}
+<p><strong>{{ cov_summary.totalTests }} test{{ cov_summary.totalTests > 1 ? 's' }}</strong> liés à {{ cov_summary.withData }} fiche{{ cov_summary.withData > 1 ? 's' }} sur {{ scope|length }}.</p>
+<table><tbody>
+<tr><th>Résultat du dernier passage</th><th>Tests</th><th>%</th></tr>
+{% for r in rn_coverage_rows(cov_summary) %}
+<tr><td>{{ c.status(r.name, colours[r.id] ?? 'Grey') }}</td><td>{{ r.count }}</td><td>{{ r.percent|number_format(1, ',') }} %</td></tr>
+{% endfor %}
+<tr><th>Total</th><th>{{ cov_summary.totalTests }}</th><th>100 %</th></tr>
+</tbody></table>
+{% else %}
+<p>Aucune fiche du périmètre n'est liée à des tests dans Octane.</p>
+{% endif %}
+<p>{% for level, def in levels %}{% set n = scope|filter(i => rn_coverage_health(i.coverage ?? null) == level)|length %}{{ c.status(def.label ~ ' : ' ~ n, def.colour) }} {% endfor %}</p>
 {% if pv.coverageError %}<p><em>Couverture partielle : {{ pv.coverageError }}</em></p>{% endif %}
-{% endset %}
-{{ c.callout('info', 'Couverture de tests Octane', covbody) }}
 {% endif %}
 <h4>Périmètre de tests</h4>
 {% if scope is empty %}<p><em>Aucune fiche dans le périmètre.</em></p>{% else %}
 <table><tbody>
 <tr><th>Clé</th><th>Type</th><th>Résumé</th><th>Statut</th>{% if cov_summary is not null %}<th>Couverture Octane</th>{% endif %}</tr>
 {% for i in scope %}
-<tr><td><a href="{{ i.url }}">{{ i.key }}</a></td><td>{{ i.type }}</td><td>{{ i.summary }}</td><td>{{ c.status(i.status ?? '?', i.statusCategory == 'done' ? 'Green' : 'Grey') }}</td>{% if cov_summary is not null %}<td>{{ m.coverage(i.coverage ?? null) }}</td>{% endif %}</tr>
+<tr><td><a href="{{ i.url }}">{{ i.key }}</a></td><td>{{ i.type }}</td><td>{{ i.summary }}</td><td>{{ c.status(i.status ?? '?', i.statusCategory == 'done' ? 'Green' : 'Grey') }}</td>{% if cov_summary is not null %}{% set h = rn_coverage_health(i.coverage ?? null) %}{% set hl = {passed: 'green', failed: 'red', warning: 'yellow', none: 'grey'}[h] %}<td class="highlight-{{ hl }}" data-highlight-colour="{{ hl }}">{{ c.status(rn_coverage_levels()[h].label, rn_coverage_levels()[h].colour) }} {{ m.coverage(i.coverage ?? null) }}</td>{% endif %}</tr>
 {% endfor %}
 </tbody></table>
 {% endif %}

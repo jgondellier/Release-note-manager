@@ -330,6 +330,10 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
      L'espace Octane est découvert automatiquement comme dans l'encart ; s'il y en a plusieurs, renseignez
      `workspace-config-id` et `workspace-id` dans le projet (valeurs visibles dans l'appel de l'encart, onglet
      Réseau du navigateur). Une indisponibilité de l'extension est signalée sans bloquer l'actualisation.
+     Code couleur par fiche : rouge « En échec » (au moins un Failed), orange « À surveiller » (Requires
+     Attention, Skipped, Planned ou test sans passage), vert « Conforme » (tous Passed), gris « Non couvert »
+     (pas de test / pas d'entité Octane) — cellule surlignée dans Confluence. Le résumé présente une ligne par
+     type de résultat (nombre et %), « Sans passage », le total et la répartition des fiches par couleur.
    - **Réserves par défaut** : liste des anomalies non terminées, mise à jour à chaque actualisation tant
      que vous n'avez pas modifié ce texte (un texte modifié n'est jamais remplacé).
    L'écran signale les fiches du périmètre sans commentaire de test.
@@ -348,7 +352,7 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 74 tests (unitaires, intégration, fonctionnels)
+php vendor/bin/phpunit                 # 76 tests (unitaires, intégration, fonctionnels)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional

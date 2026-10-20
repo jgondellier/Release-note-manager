@@ -59,4 +59,28 @@ final class OctaneCoverageNormalizeTest extends TestCase
         self::assertSame(5, $a['executedTests']);
         self::assertSame([['id' => 'passed', 'name' => 'Passed', 'count' => 4], ['id' => 'failed', 'name' => 'Failed', 'count' => 1]], $a['groups']);
     }
+
+    public function testHealthColourCode(): void
+    {
+        $cov = static fn (int $total, array $groups) => ['status' => 'hasData', 'totalTests' => $total, 'executedTests' => array_sum($groups), 'groups' => array_map(static fn ($id, $n) => ['id' => $id, 'name' => $id, 'count' => $n], array_keys($groups), $groups)];
+
+        self::assertSame('passed', OctaneCoverageService::health($cov(3, ['passed' => 3])));
+        self::assertSame('failed', OctaneCoverageService::health($cov(5, ['passed' => 4, 'failed' => 1])));
+        self::assertSame('warning', OctaneCoverageService::health($cov(3, ['passed' => 2, 'needsAttention' => 1])));
+        self::assertSame('warning', OctaneCoverageService::health($cov(4, ['passed' => 3])), 'Un test sans passage');
+        self::assertSame('none', OctaneCoverageService::health(['status' => 'noData']));
+        self::assertSame('none', OctaneCoverageService::health(null));
+        self::assertSame('none', OctaneCoverageService::health($cov(0, [])));
+    }
+
+    public function testSummaryRowsOnePerResultTypePlusNotRun(): void
+    {
+        $rows = OctaneCoverageService::summaryRows(['totalTests' => 8, 'executedTests' => 6, 'groups' => [['id' => 'passed', 'name' => 'Passed', 'count' => 5], ['id' => 'failed', 'name' => 'Failed', 'count' => 1]]]);
+
+        self::assertSame([
+            ['id' => 'passed', 'name' => 'Passed', 'count' => 5, 'percent' => 62.5],
+            ['id' => 'failed', 'name' => 'Failed', 'count' => 1, 'percent' => 12.5],
+            ['id' => 'none', 'name' => 'Sans passage', 'count' => 2, 'percent' => 25.0],
+        ], $rows);
+    }
 }

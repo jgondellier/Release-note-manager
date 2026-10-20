@@ -136,6 +136,55 @@ class OctaneCoverageService
         return ['withData' => $withData, 'totalTests' => $total, 'executedTests' => $executed, 'groups' => array_values($groups)];
     }
 
+    public const HEALTH_LEVELS = [
+        'failed' => ['label' => 'En échec', 'colour' => 'Red'],
+        'warning' => ['label' => 'À surveiller', 'colour' => 'Yellow'],
+        'passed' => ['label' => 'Conforme', 'colour' => 'Green'],
+        'none' => ['label' => 'Non couvert', 'colour' => 'Grey'],
+    ];
+
+    /**
+     * Code couleur d'une fiche : failed (au moins un échec), warning (à surveiller, ignoré,
+     * planifié ou sans passage), passed (tout est passé), none (pas de test / pas d'entité).
+     *
+     * @param array<string, mixed>|null $coverage
+     */
+    public static function health(?array $coverage): string
+    {
+        if (null === $coverage || 'hasData' !== ($coverage['status'] ?? null) || (int) ($coverage['totalTests'] ?? 0) <= 0) {
+            return 'none';
+        }
+        $counts = array_column((array) ($coverage['groups'] ?? []), 'count', 'id');
+        if (($counts['failed'] ?? 0) > 0) {
+            return 'failed';
+        }
+        $passed = (int) ($counts['passed'] ?? 0);
+
+        return $passed >= (int) $coverage['totalTests'] ? 'passed' : 'warning';
+    }
+
+    /**
+     * Lignes du résumé : une par type de résultat, puis « Sans passage », avec pourcentage du total.
+     *
+     * @param array<string, mixed> $summary résultat de aggregate()
+     *
+     * @return list<array{id: string, name: string, count: int, percent: float}>
+     */
+    public static function summaryRows(array $summary): array
+    {
+        $total = max(1, (int) $summary['totalTests']);
+        $rows = [];
+        foreach ((array) $summary['groups'] as $g) {
+            $rows[] = ['id' => (string) $g['id'], 'name' => (string) $g['name'], 'count' => (int) $g['count'], 'percent' => round(100 * $g['count'] / $total, 1)];
+        }
+        $notRun = (int) $summary['totalTests'] - (int) $summary['executedTests'];
+        if ($notRun > 0) {
+            $rows[] = ['id' => 'none', 'name' => 'Sans passage', 'count' => $notRun, 'percent' => round(100 * $notRun / $total, 1)];
+        }
+
+        return $rows;
+    }
+
     /** @return array{0: string, 1: string}|null [workspace-config-id, workspace-id] */
     private function workspace(Project $project, string $issueType): ?array
     {

@@ -264,6 +264,13 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         $renderer->assertWellFormed($storage);
         self::assertStringContainsString('<ac:parameter ac:name="title">3 Passed</ac:parameter>', $storage);
         self::assertStringContainsString('<a href="https://octane.local/tests/4012">5 tests</a>', $storage);
+        // Code couleur : CCS-2 (1 échec) rouge, CCS-6 (tout passé) vert, CCS-3 (pas d'entité) gris.
+        self::assertStringContainsString('<td class="highlight-red" data-highlight-colour="red">', $storage);
+        self::assertStringContainsString('<td class="highlight-green" data-highlight-colour="green">', $storage);
+        self::assertStringContainsString('<td class="highlight-grey" data-highlight-colour="grey">', $storage);
+        self::assertStringContainsString('<ac:parameter ac:name="title">En échec : 1</ac:parameter>', $storage);
+        self::assertStringContainsString('<td>4</td><td>66,7 %</td>', $storage, 'Ligne Passed du résumé (4 sur 6)');
+        self::assertStringContainsString('<td class="rn-health rn-health-failed">', $web);
     }
 
     public function testMissingOctanePluginDoesNotBlockRefresh(): void
