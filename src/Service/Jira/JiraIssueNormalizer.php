@@ -22,7 +22,7 @@ final class JiraIssueNormalizer
     /** Champs demandés à Jira (le champ Epic Link est ajouté s'il est configuré). */
     public static function fields(ExternalConnection $connection): array
     {
-        $fields = ['summary', 'issuetype', 'status', 'priority', 'components', 'labels', 'fixVersions', 'parent', 'description', 'updated', 'resolution'];
+        $fields = ['summary', 'issuetype', 'status', 'priority', 'components', 'labels', 'fixVersions', 'parent', 'description', 'updated', 'resolution', 'issuelinks'];
         if (null !== $connection->getJiraEpicLinkField()) {
             $fields[] = $connection->getJiraEpicLinkField();
         }
@@ -84,7 +84,42 @@ final class JiraIssueNormalizer
                 'epicLink' => $epicLinkKey,
                 'updated' => $f['updated'] ?? null,
             ],
+            linkedIssues: $this->links($f['issuelinks'] ?? []),
         );
+    }
+
+    /**
+     * Tickets liés (liens Jira « bloque », « est lié à »…), avec le libellé du lien vu depuis ce ticket.
+     *
+     * @return list<array{key: string, summary: string, type: string, status: ?string, statusCategory: ?string, priority: ?string, link: string}>
+     */
+    private function links(mixed $issueLinks): array
+    {
+        $links = [];
+        foreach ((array) $issueLinks as $link) {
+            if (!\is_array($link)) {
+                continue;
+            }
+            [$other, $label] = isset($link['outwardIssue'])
+                ? [$link['outwardIssue'], $link['type']['outward'] ?? $link['type']['name'] ?? 'lié à']
+                : [$link['inwardIssue'] ?? null, $link['type']['inward'] ?? $link['type']['name'] ?? 'lié à'];
+            if (!\is_array($other) || !isset($other['key'])) {
+                continue;
+            }
+            $f = \is_array($other['fields'] ?? null) ? $other['fields'] : [];
+            $category = $f['status']['statusCategory']['key'] ?? null;
+            $links[] = [
+                'key' => (string) $other['key'],
+                'summary' => (string) ($f['summary'] ?? ''),
+                'type' => (string) ($f['issuetype']['name'] ?? ''),
+                'status' => isset($f['status']['name']) ? (string) $f['status']['name'] : null,
+                'statusCategory' => \is_string($category) ? $category : null,
+                'priority' => isset($f['priority']['name']) ? (string) $f['priority']['name'] : null,
+                'link' => (string) $label,
+            ];
+        }
+
+        return $links;
     }
 
     /** @param array<string, mixed> $issueType */

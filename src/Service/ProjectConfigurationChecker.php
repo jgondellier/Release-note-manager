@@ -58,6 +58,10 @@ class ProjectConfigurationChecker
             if (null !== $parent) {
                 $results[$label . ' — page parente'] = $this->run($connection, fn () => $this->confluenceTester->checkParentPage($connection, $parent));
             }
+            $pvParent = $project->getConfluenceAcceptanceParentPageId($target);
+            if (null !== $pvParent) {
+                $results[$label . ' — page parente des PV'] = $this->run($connection, fn () => $this->confluenceTester->checkParentPage($connection, $pvParent));
+            }
         }
 
         $project->recordCheckResult($results);

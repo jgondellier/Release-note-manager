@@ -87,6 +87,16 @@ class Project
     #[Assert\Regex(pattern: '/^\d+$/', message: "L'identifiant de page parente est numérique.")]
     private ?string $confluenceServerParentPageId = null;
 
+    /** Page parente dédiée aux PV de recette (Cloud) ; à défaut, PV sous la page de regroupement de la version. */
+    #[ORM\Column(length: 50, nullable: true)]
+    #[Assert\Regex(pattern: '/^\d+$/', message: "L'identifiant de page parente est numérique.")]
+    private ?string $confluenceCloudAcceptanceParentPageId = null;
+
+    /** Page parente dédiée aux PV de recette (Server / Data Center). */
+    #[ORM\Column(length: 50, nullable: true)]
+    #[Assert\Regex(pattern: '/^\d+$/', message: "L'identifiant de page parente est numérique.")]
+    private ?string $confluenceServerAcceptanceParentPageId = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastCheckedAt = null;
 
@@ -288,6 +298,35 @@ class Project
         $this->confluenceServerParentPageId = self::nullIfBlank($pageId);
 
         return $this;
+    }
+
+    public function getConfluenceCloudAcceptanceParentPageId(): ?string
+    {
+        return $this->confluenceCloudAcceptanceParentPageId;
+    }
+
+    public function setConfluenceCloudAcceptanceParentPageId(?string $pageId): static
+    {
+        $this->confluenceCloudAcceptanceParentPageId = self::nullIfBlank($pageId);
+
+        return $this;
+    }
+
+    public function getConfluenceServerAcceptanceParentPageId(): ?string
+    {
+        return $this->confluenceServerAcceptanceParentPageId;
+    }
+
+    public function setConfluenceServerAcceptanceParentPageId(?string $pageId): static
+    {
+        $this->confluenceServerAcceptanceParentPageId = self::nullIfBlank($pageId);
+
+        return $this;
+    }
+
+    public function getConfluenceAcceptanceParentPageId(PublicationTarget $target): ?string
+    {
+        return PublicationTarget::Cloud === $target ? $this->confluenceCloudAcceptanceParentPageId : $this->confluenceServerAcceptanceParentPageId;
     }
 
     public function getConfluenceConnection(PublicationTarget $target): ?ExternalConnection

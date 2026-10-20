@@ -34,10 +34,16 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         $this->issues = [
             JiraFixtures::issue('CCS-1', 'Epic', 'Gestion clients', [], '10042', true),
             JiraFixtures::issue('CCS-2', 'Story', 'Créer un client', ['parent' => JiraFixtures::parent('CCS-1', 'Gestion clients')]),
-            JiraFixtures::issue('CCS-3', 'Story', 'Modifier un client'),
+            JiraFixtures::issue('CCS-3', 'Story', 'Modifier un client', ['issuelinks' => [
+                ['type' => ['name' => 'Blocks', 'inward' => 'est bloqué par', 'outward' => 'bloque'], 'inwardIssue' => ['key' => 'CCS-9', 'fields' => ['summary' => 'Doublon de client', 'issuetype' => ['name' => 'Bug'], 'status' => ['name' => 'À faire', 'statusCategory' => ['key' => 'new']], 'priority' => ['name' => 'High']]]],
+                ['type' => ['name' => 'Relates', 'inward' => 'est lié à', 'outward' => 'est lié à'], 'outwardIssue' => ['key' => 'CCS-4', 'fields' => ['summary' => 'Adresse tronquée', 'issuetype' => ['name' => 'Bug'], 'status' => ['name' => 'En cours', 'statusCategory' => ['key' => 'indeterminate']]]]],
+                ['type' => ['name' => 'Relates', 'inward' => 'est lié à', 'outward' => 'est lié à'], 'outwardIssue' => ['key' => 'CCS-6', 'fields' => ['summary' => 'Purge', 'issuetype' => ['name' => 'Task'], 'status' => ['name' => 'Terminé', 'statusCategory' => ['key' => 'done']]]]],
+            ]]),
             JiraFixtures::issue('CCS-4', 'Bug', 'Adresse tronquée', ['status' => ['name' => 'En cours', 'statusCategory' => ['key' => 'indeterminate']]]),
             JiraFixtures::issue('CCS-5', 'Bug', 'Date de naissance', ['resolution' => ['name' => 'Corrigé']]),
             JiraFixtures::issue('CCS-6', 'Task', 'Purge des logs'),
+            // Anomalie hors version, liée à CCS-3 : relue par clé.
+            JiraFixtures::issue('CCS-9', 'Bug', 'Doublon de client', ['status' => ['name' => 'À faire', 'statusCategory' => ['key' => 'new']], 'priority' => ['name' => 'High']], '10043'),
         ];
         $this->fakeJiraCloud($this->issues);
         $comments = [
@@ -70,11 +76,19 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         self::assertSame('CCS - v 2.4.0', $report->getVersionLabel());
         self::assertSame('2026-10-20', $report->getMepDate()?->format('Y-m-d'));
         self::assertSame(AcceptanceDocumentStatus::Draft, $report->getDocumentStatus());
-        self::assertSame(['scope' => 3, 'tests' => 2, 'anomalies' => 2], $counts);
+        self::assertSame(['scope' => 3, 'tests' => 2, 'anomalies' => 3], $counts);
 
         self::assertSame(['CCS-2', 'CCS-3', 'CCS-6'], array_column($report->getScopeItems(), 'key'), 'US hors anomalies et hors Epic');
-        self::assertSame(['CCS-4', 'CCS-5'], array_column($report->getAnomalyItems(), 'key'));
-        self::assertSame('Corrigé', $report->getAnomalyItems()[1]['resolution']);
+        $anomalies = $report->getAnomalyItems();
+        self::assertSame(['CCS-4', 'CCS-9', 'CCS-5'], array_column($anomalies, 'key'), 'Non terminées d\'abord, anomalie liée incluse');
+        self::assertSame(['version', 'linked', 'version'], array_column($anomalies, 'origin'));
+        self::assertSame(['CCS-3 (est bloqué par)'], $anomalies[1]['linkedFrom']);
+        self::assertSame(['CCS-3 (est lié à)'], $anomalies[0]['linkedFrom'], 'Anomalie de version également liée : pas de doublon');
+        self::assertSame('High', $anomalies[1]['priority'], 'Données complètes relues dans Jira');
+        self::assertSame('Corrigé', $anomalies[2]['resolution']);
+
+        // Réserves par défaut = anomalies non terminées.
+        self::assertSame("Anomalies non terminées à la date du PV :\n- CCS-4 — Adresse tronquée (En cours)\n- CCS-9 — Doublon de client (À faire)", $report->getReserves());
 
         $tests = $report->getTestItems();
         self::assertSame(['CCS-2', 'CCS-6'], array_column($tests, 'key'), 'Regroupement par US, US sans test absente');
@@ -124,7 +138,10 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         $web = $renderer->renderWeb($release, PublicationFormat::AcceptanceReport);
         self::assertStringContainsString('Du 09/09/2026<br>au 14/09/2026', $web);
         self::assertStringContainsString('non-régression &lt;OK&gt;', $web, 'Commentaires Jira échappés');
-        self::assertStringContainsString('2 anomalies détectées</strong>, dont 1 terminée', $web);
+        self::assertStringContainsString('3 anomalies détectées</strong> (2 de la version, 1 liée aux fiches du périmètre)', $web);
+        self::assertStringContainsString('Anomalies non terminées (2)', $web);
+        self::assertStringContainsString('Anomalies terminées (1)', $web);
+        self::assertStringContainsString('Liée à CCS-3 (est bloqué par)', $web);
 
         $storage = $renderer->renderStorage($release, PublicationFormat::AcceptanceReport);
         $renderer->assertWellFormed($storage);
@@ -155,6 +172,58 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         $pages = array_column($created, 'parentId', 'title');
         self::assertSame(array_search('CCS 2.4.0 — Release notes', array_column($created, 'title', null), true) + 9000, (int) $pages['CCS 2.4.0 — PV de recette']);
         self::assertSame(ReleaseStatus::Draft, $release->getStatus(), 'Le PV seul ne change pas le statut des release notes');
+    }
+
+    public function testDefaultReservesFollowJiraUntilEditedByUser(): void
+    {
+        $release = $this->prepare();
+        $service = $this->service(AcceptanceReportService::class);
+        $report = $service->create($release);
+        $service->refreshFromJira($report);
+        self::assertStringContainsString('CCS-9', (string) $report->getReserves());
+
+        // CCS-9 terminée dans Jira : réserves générées mises à jour automatiquement.
+        foreach ($this->issues as &$issue) {
+            if ('CCS-9' === $issue['key']) {
+                $issue['fields']['status'] = ['name' => 'Terminé', 'statusCategory' => ['key' => 'done']];
+            }
+        }
+        unset($issue);
+        $service->refreshFromJira($report);
+        self::assertStringNotContainsString('CCS-9', (string) $report->getReserves());
+        self::assertStringContainsString('CCS-4', (string) $report->getReserves());
+
+        // Texte modifié par l'utilisateur : jamais remplacé.
+        $report->setReserves('Réserve rédigée par le PO');
+        $service->refreshFromJira($report);
+        self::assertSame('Réserve rédigée par le PO', $report->getReserves());
+    }
+
+    public function testDedicatedParentPagePublishesReportOutsideVersionContainer(): void
+    {
+        $release = $this->prepare();
+        $release->getProject()->setConfluenceCloudAcceptanceParentPageId('321');
+        $service = $this->service(AcceptanceReportService::class);
+        $report = $service->create($release);
+        $service->refreshFromJira($report);
+
+        $created = [];
+        $this->server
+            ->on('GET', '/wiki/api/v2/spaces', static fn () => ['results' => [['id' => '777', 'key' => 'CCS']]])
+            ->on('GET', '/wiki/api/v2/pages', static fn () => ['results' => []])
+            ->on('POST', '/wiki/api/v2/pages', static function (array $b) use (&$created) {
+                $created[] = ['title' => $b['title'], 'parentId' => $b['parentId'] ?? null];
+
+                return ['id' => (string) (9000 + \count($created)), 'title' => $b['title'], 'version' => ['number' => 1], '_links' => ['webui' => '/p']];
+            });
+        $publication = $this->service(PublicationService::class);
+        $outcomes = $publication->publish($release, ['acceptance:cloud']);
+
+        self::assertTrue($outcomes[0]->isSuccess(), $outcomes[0]->message);
+        self::assertSame([['title' => 'CCS 2.4.0 — PV de recette', 'parentId' => '321']], $created, 'Pas de page de regroupement, parent dédié');
+
+        $publication->publish($release, ['it:cloud']);
+        self::assertSame('CCS 2.4.0 — Release notes', $created[1]['title'], 'Les release notes gardent leur page de regroupement');
     }
 
     public function testFinalReportRequiresDecisionAndReservesWhenNeeded(): void

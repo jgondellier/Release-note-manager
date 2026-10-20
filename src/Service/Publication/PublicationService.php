@@ -75,6 +75,7 @@ class PublicationService
                     $reason = 'Release archivée';
                 }
                 $publication = $release->findPublication($format, $target);
+                $dedicatedParent = PublicationFormat::AcceptanceReport === $format ? $project->getConfluenceAcceptanceParentPageId($target) : null;
                 $rows[] = new PublicationTargetRow(
                     format: $format,
                     target: $target,
@@ -82,12 +83,13 @@ class PublicationService
                     unavailableReason: $reason,
                     connectionName: $connection?->getName(),
                     spaceKey: $project->getConfluenceSpaceKey($target),
-                    parentPageId: $project->getConfluenceParentPageId($target),
+                    parentPageId: $dedicatedParent ?? $project->getConfluenceParentPageId($target),
                     pageTitle: $title,
                     containerTitle: $this->renderer->containerTitle($release),
                     container: $release->findContainer($target),
                     publication: $publication,
                     outdated: null !== $publication && null !== $publication->getContentHash() && $this->isOutdated($release, $format, $publication),
+                    useContainer: null === $dedicatedParent,
                 );
             }
         }
@@ -163,12 +165,12 @@ class PublicationService
             $started = microtime(true);
 
             try {
-                $containerId = $this->ensureContainer($release, $row, $connection);
+                $parentId = $row->useContainer ? $this->ensureContainer($release, $row, $connection) : $row->parentPageId;
                 $storage = $this->renderer->renderStorage($release, $row->format);
                 $result = $this->publisher->publish(
                     $connection,
                     $row->spaceKey,
-                    $containerId,
+                    $parentId,
                     $publication->getConfluencePageId(),
                     $row->pageTitle,
                     $storage
@@ -206,7 +208,7 @@ class PublicationService
         $key = $release->getId() . ':' . $row->target->value;
         $container = $release->findContainer($row->target);
         $title = $this->renderer->containerTitle($release);
-        $storage = $this->renderer->renderContainerStorage($release);
+        $storage = $this->renderer->renderContainerStorage($release, $row->target);
         $hash = $this->renderer->contentHash($title, $storage);
 
         if (null !== $container && isset($this->verifiedContainers[$key]) && $container->getContentHash() === $hash) {

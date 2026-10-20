@@ -14,6 +14,7 @@ final class JiraIssue
      * @param list<string>                         $labels
      * @param list<array{id: string, name: string}> $fixVersions
      * @param array<string, mixed>                 $diagnostic sous-ensemble non sensible de la réponse brute
+     * @param list<array{key: string, summary: string, type: string, status: ?string, statusCategory: ?string, priority: ?string, link: string}> $linkedIssues
      */
     public function __construct(
         public readonly string $id,
@@ -36,6 +37,7 @@ final class JiraIssue
         public readonly string $url,
         public readonly ?\DateTimeImmutable $updatedAt,
         public readonly array $diagnostic = [],
+        public readonly array $linkedIssues = [],
     ) {
     }
 

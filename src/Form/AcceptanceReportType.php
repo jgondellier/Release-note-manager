@@ -65,7 +65,7 @@ final class AcceptanceReportType extends AbstractType
                 'placeholder' => 'Non décidée',
                 'choice_label' => static fn (AcceptanceDecision $d) => $d->label(),
             ])
-            ->add('reserves', TextareaType::class, $text('Réserves', 3))
+            ->add('reserves', TextareaType::class, $text('Réserves', 4, 'Prérempli avec les anomalies non terminées et mis à jour à chaque actualisation Jira, tant que vous ne modifiez pas ce texte.'))
             ->add('comments', TextareaType::class, $text('Commentaires', 3))
             // 4. Signatures
             ->add('deliverySignatory', TextType::class, ['label' => 'Responsable de la livraison — nom', 'required' => false])

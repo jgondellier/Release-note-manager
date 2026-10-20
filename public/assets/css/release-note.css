@@ -119,3 +119,8 @@
 .rn-decision li.is-selected { font-weight: 700; border-width: 2px; }
 .rn-check { font-size: 1.1rem; margin-right: .3rem; }
 .rn-signature p { margin: .3rem 0; min-height: 1.4em; }
+
+.rn-status.is-open { background: #ffebe6; color: #bf2600; }
+.rn-open-title { color: #bf2600 !important; }
+.rn-done-title { color: #006644 !important; }
+.rn-table-open th { background: #ffebe6; }

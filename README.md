@@ -318,7 +318,12 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
      (`TEST :` par défaut ; casse et espaces autour du « : » ignorés, `*TEST :*` accepté), préfixe retiré,
      regroupés par ticket (titre = clé + résumé), avec auteur et date ;
    - **2.2.2 Anomalies** : tickets de la version dont le type est rattaché à la catégorie « Correction »
-     (*Types de tickets*) ; le nombre et la part terminée sont calculés, un commentaire libre complète.
+     (*Types de tickets*), **plus les anomalies liées** (liens Jira : « bloque », « est lié à »…) aux fiches
+     du périmètre, même sans la Fix Version (relues dans Jira, sans doublon). Elles sont présentées en deux
+     tableaux, **non terminées** puis **terminées**, avec leur origine (« Version » ou « Liée à FIN-101
+     (est bloqué par) »). Un commentaire libre complète la synthèse calculée.
+   - **Réserves par défaut** : liste des anomalies non terminées, mise à jour à chaque actualisation tant
+     que vous n'avez pas modifié ce texte (un texte modifié n'est jamais remplacé).
    L'écran signale les fiches du périmètre sans commentaire de test.
 3. **Compléter** : identification, responsables (un par ligne), déroulement (phases avec dates prévues /
    réelles — vides = « N/A » —, environnements, commentaires), hors périmètre, décision (acceptée sans
@@ -326,14 +331,16 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
    Un PV définitif exige une décision ; « avec réserves » exige le texte des réserves.
 4. **Publier** : le PV apparaît comme format « PV de recette » dans l'écran de publication (Cloud et/ou
    Server). Sa page « <Projet> <Version> — PV de recette » est rangée sous la page de regroupement de la
-   version, avec les release notes. Republication = mise à jour de la même page. Le PV n'intervient pas
+   version, avec les release notes, **ou** sous la **page parente dédiée aux PV** si elle est renseignée
+   dans le projet (*Projets › Modifier*, un identifiant pour Cloud et un pour Server/DC). Changer ce réglage
+   déplace la page à la prochaine republication. Republication = mise à jour de la même page. Le PV n'intervient pas
    dans le statut « Publiée » des release notes.
 
 ## 17. Tests
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 67 tests (unitaires, intégration, fonctionnels)
+php vendor/bin/phpunit                 # 69 tests (unitaires, intégration, fonctionnels)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional

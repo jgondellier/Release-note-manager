@@ -67,16 +67,22 @@
 {% endfor %}
 
 <h3>2.2.2 Anomalies détectées</h3>
-<p><strong>{{ anomalies|length }} anomalie{{ anomalies|length > 1 ? 's' }} détectée{{ anomalies|length > 1 ? 's' }}</strong>{% if anomalies is not empty %}, dont {{ anomalies_done }} terminée{{ anomalies_done > 1 ? 's' }}{% endif %}.</p>
+{% set n = anomalies|length %}
+<p><strong>{{ n }} anomalie{{ n > 1 ? 's' }} détectée{{ n > 1 ? 's' }}</strong>{% if n > 0 %} ({{ n - anomalies_linked }} de la version, {{ anomalies_linked }} liée{{ anomalies_linked > 1 ? 's' }} aux fiches du périmètre) : {{ c.status(anomalies_done ~ ' terminée' ~ (anomalies_done > 1 ? 's' : ''), 'Green') }} {{ c.status(anomalies_open_list|length ~ ' non terminée' ~ (anomalies_open_list|length > 1 ? 's' : ''), anomalies_open_list is empty ? 'Grey' : 'Red') }}{% endif %}</p>
 {% if pv.anomaliesComment %}{{ pv.anomaliesComment|rn_text }}{% endif %}
-{% if anomalies is not empty %}
+{% for group in [{title: 'Anomalies non terminées', items: anomalies_open_list, open: true}, {title: 'Anomalies terminées', items: anomalies_done_list, open: false}] %}
+{% if group.items is not empty %}
+{% set table %}
 <table><tbody>
-<tr><th>Clé</th><th>Résumé</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr>
-{% for a in anomalies %}
-<tr><td><a href="{{ a.url }}">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{{ a.priority }}</td><td>{{ c.status(a.status ?? '?', a.statusCategory == 'done' ? 'Green' : 'Red') }}</td><td>{{ a.resolution ?? '—' }}</td></tr>
+<tr><th>Clé</th><th>Résumé</th><th>Origine</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr>
+{% for a in group.items %}
+<tr><td><a href="{{ a.url }}">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{% if (a.origin ?? 'version') == 'linked' %}Liée à {{ a.linkedFrom|join(', ') }}{% else %}Version{% if a.linkedFrom|default([]) is not empty %} (liée à {{ a.linkedFrom|join(', ') }}){% endif %}{% endif %}</td><td>{{ a.priority }}</td><td>{{ c.status(a.status ?? '?', a.statusCategory == 'done' ? 'Green' : 'Red') }}</td><td>{{ a.resolution ?? '—' }}</td></tr>
 {% endfor %}
 </tbody></table>
+{% endset %}
+{% if group.open %}{{ c.callout('warning', group.title ~ ' (' ~ group.items|length ~ ')', table) }}{% else %}<h4>{{ group.title }} ({{ group.items|length }})</h4>{{ table }}{% endif %}
 {% endif %}
+{% endfor %}
 
 <h2>3. Conclusion de la recette</h2>
 <table><tbody>

@@ -6,6 +6,7 @@ namespace App\Service\ReleaseNote;
 
 use App\Entity\Release;
 use App\Enum\PublicationFormat;
+use App\Enum\PublicationTarget;
 use App\Service\ReleaseNote\Dto\ReleaseNoteView;
 use Twig\Environment;
 
@@ -44,10 +45,16 @@ class ReleaseNoteRenderer
             }
             $anomalies = $report->getAnomalyItems();
 
+            $done = array_values(array_filter($anomalies, static fn (array $a) => 'done' === ($a['statusCategory'] ?? null)));
+            $open = array_values(array_filter($anomalies, static fn (array $a) => 'done' !== ($a['statusCategory'] ?? null)));
+
             return [
                 'pv' => $report,
                 'release' => $release,
-                'anomalies_done' => \count(array_filter($anomalies, static fn (array $a) => 'done' === ($a['statusCategory'] ?? null))),
+                'anomalies_done' => \count($done),
+                'anomalies_done_list' => $done,
+                'anomalies_open_list' => $open,
+                'anomalies_linked' => \count(array_filter($anomalies, static fn (array $a) => 'linked' === ($a['origin'] ?? 'version'))),
             ];
         }
 
@@ -83,9 +90,14 @@ class ReleaseNoteRenderer
     }
 
     /** Contenu de la page de regroupement (liste automatique des pages enfants). */
-    public function renderContainerStorage(Release $release): string
+    public function renderContainerStorage(Release $release, PublicationTarget $target): string
     {
-        $xml = $this->twig->render('render/confluence/container.xml.twig', ['release' => $release]);
+        $project = $release->getProject();
+        $xml = $this->twig->render('render/confluence/container.xml.twig', [
+            'release' => $release,
+            // Le PV n'est listé que s'il est rangé sous cette page (pas de page parente dédiée).
+            'pv_in_container' => null !== $release->getAcceptanceReport() && null === $project?->getConfluenceAcceptanceParentPageId($target),
+        ]);
         $xml = (string) preg_replace('/>[ \t]*\R\s*</u', '><', trim($xml));
         $this->assertWellFormed($xml);
 

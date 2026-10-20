@@ -57,6 +57,11 @@ final class ProjectType extends AbstractType
                 'required' => false,
                 'help' => 'Facultatif. Numéro visible dans l\'URL de la page (…/pages/123456/…).',
             ])
+            ->add('confluenceCloudAcceptanceParentPageId', TextType::class, [
+                'label' => 'ID de la page parente des PV de recette (Cloud)',
+                'required' => false,
+                'help' => 'Facultatif. Si renseigné, les PV de recette sont publiés sous cette page ; sinon sous la page de regroupement de la version.',
+            ])
             ->add('confluenceServerConnection', EntityType::class, [
                 'class' => ExternalConnection::class,
                 'label' => 'Connexion Confluence Server / DC',
@@ -70,6 +75,11 @@ final class ProjectType extends AbstractType
                 'label' => 'ID de la page parente Server / DC',
                 'required' => false,
                 'help' => 'Facultatif. Paramètre pageId de l\'URL (viewpage.action?pageId=…).',
+            ])
+            ->add('confluenceServerAcceptanceParentPageId', TextType::class, [
+                'label' => 'ID de la page parente des PV de recette (Server / DC)',
+                'required' => false,
+                'help' => 'Facultatif. Si renseigné, les PV de recette sont publiés sous cette page ; sinon sous la page de regroupement de la version.',
             ]);
     }
 

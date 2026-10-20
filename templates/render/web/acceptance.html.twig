@@ -103,20 +103,31 @@
         {% endfor %}
 
         <h3>2.2.2 Anomalies détectées</h3>
-        <p class="rn-lead"><strong>{{ anomalies|length }} anomalie{{ anomalies|length > 1 ? 's' }} détectée{{ anomalies|length > 1 ? 's' }}</strong>{% if anomalies is not empty %}, dont {{ anomalies_done }} terminée{{ anomalies_done > 1 ? 's' }}{% endif %}.</p>
+        {% set n = anomalies|length %}
+        <p class="rn-lead"><strong>{{ n }} anomalie{{ n > 1 ? 's' }} détectée{{ n > 1 ? 's' }}</strong>{% if n > 0 %} ({{ n - anomalies_linked }} de la version, {{ anomalies_linked }} liée{{ anomalies_linked > 1 ? 's' }} aux fiches du périmètre) : <span class="rn-status is-done">{{ anomalies_done }} terminée{{ anomalies_done > 1 ? 's' }}</span> <span class="rn-status is-open">{{ anomalies_open_list|length }} non terminée{{ anomalies_open_list|length > 1 ? 's' }}</span>{% endif %}</p>
         {% if pv.anomaliesComment %}<div class="rn-text">{{ pv.anomaliesComment|rn_text }}</div>{% endif %}
-        {% if anomalies is not empty %}
-        <div class="rn-table-wrap">
-            <table class="rn-table">
-                <thead><tr><th>Clé</th><th>Résumé</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr></thead>
-                <tbody>
-                {% for a in anomalies %}
-                    <tr><td class="rn-nowrap"><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{{ a.priority }}</td><td><span class="rn-status{{ a.statusCategory == 'done' ? ' is-done' }}">{{ a.status }}</span></td><td>{{ a.resolution ?? '—' }}</td></tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% endif %}
+        {% for group in [{title: 'Anomalies non terminées', items: anomalies_open_list, open: true}, {title: 'Anomalies terminées', items: anomalies_done_list, open: false}] %}
+            {% if group.items is not empty %}
+            <h4 class="{{ group.open ? 'rn-open-title' : 'rn-done-title' }}">{{ group.title }} ({{ group.items|length }})</h4>
+            <div class="rn-table-wrap">
+                <table class="rn-table{{ group.open ? ' rn-table-open' }}">
+                    <thead><tr><th>Clé</th><th>Résumé</th><th>Origine</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr></thead>
+                    <tbody>
+                    {% for a in group.items %}
+                        <tr>
+                            <td class="rn-nowrap"><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.key }}</a></td>
+                            <td>{{ a.summary }}</td>
+                            <td>{% if (a.origin ?? 'version') == 'linked' %}Liée à {{ a.linkedFrom|join(', ') }}{% else %}Version{% if a.linkedFrom|default([]) is not empty %}<br><span class="rn-na">liée à {{ a.linkedFrom|join(', ') }}</span>{% endif %}{% endif %}</td>
+                            <td>{{ a.priority }}</td>
+                            <td><span class="rn-status{{ a.statusCategory == 'done' ? ' is-done' : ' is-open' }}">{{ a.status }}</span></td>
+                            <td>{{ a.resolution ?? '—' }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        {% endfor %}
     </section>
 
     <section class="rn-section">

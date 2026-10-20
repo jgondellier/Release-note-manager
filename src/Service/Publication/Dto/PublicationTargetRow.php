@@ -27,6 +27,8 @@ final class PublicationTargetRow
         public readonly ?PublicationContainer $container,
         public readonly ?Publication $publication,
         public readonly bool $outdated,
+        /** false : page publiée directement sous parentPageId (PV avec page parente dédiée). */
+        public readonly bool $useContainer = true,
     ) {
     }
 
@@ -43,6 +45,9 @@ final class PublicationTargetRow
     /** Emplacement de la page : sous la page de regroupement de la release. */
     public function locationLabel(): string
     {
+        if (!$this->useContainer) {
+            return sprintf('sous la page parente dédiée aux PV (page %s)', $this->parentPageId);
+        }
         $location = null !== $this->container
             ? sprintf('sous « %s » (page n°%s)', $this->containerTitle, $this->container->getConfluencePageId())
             : sprintf('sous « %s » (créée à la première publication)', $this->containerTitle);

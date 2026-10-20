@@ -37,9 +37,11 @@
     <div class="stats">
         {{ ui.stat(report.scopeItems|length, 'Fiches dans le périmètre', 'stat-primary') }}
         {{ ui.stat(report.testItems|length, 'Fiches avec tests « ' ~ report.testCommentPrefix ~ ' »', 'stat-info') }}
-        {{ ui.stat(report.anomalyItems|length, 'Anomalies', report.anomalyItems is empty ? 'stat-success' : 'stat-warning') }}
+        {% set open_anomalies = report.anomalyItems|filter(a => a.statusCategory != 'done')|length %}
+        {% set linked_anomalies = report.anomalyItems|filter(a => (a.origin ?? 'version') == 'linked')|length %}
+        {{ ui.stat(report.anomalyItems|length, 'Anomalies (dont ' ~ linked_anomalies ~ ' liée(s), ' ~ open_anomalies ~ ' non terminée(s))', open_anomalies > 0 ? 'stat-warning' : 'stat-success') }}
     </div>
-    <p class="small muted">Périmètre : tickets de la Fix Version hors Epics, sous-tâches et anomalies. Anomalies : types rattachés à la catégorie « Correction » dans <a href="{{ path('mapping_index') }}">Types de tickets</a>. L'actualisation ne modifie aucun texte saisi.</p>
+    <p class="small muted">Périmètre : tickets de la Fix Version hors Epics, sous-tâches et anomalies. Anomalies : tickets de la version, plus ceux liés (liens Jira) aux fiches du périmètre, dont le type est rattaché à la catégorie « Correction » dans <a href="{{ path('mapping_index') }}">Types de tickets</a>. L'actualisation ne modifie aucun texte saisi.</p>
     {% set scope_without_tests = report.scopeItems|filter(i => i.key not in report.testItems|map(t => t.key)) %}
     {% if report.jiraSyncedAt and scope_without_tests is not empty %}
         <details class="callout callout-warning">

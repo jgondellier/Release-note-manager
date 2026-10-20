@@ -36,6 +36,8 @@
                 <dt>Espace</dt><dd>{{ target == 'cloud' ? project.confluenceCloudSpaceKey : project.confluenceServerSpaceKey }}</dd>
                 {% set parent_page = target == 'cloud' ? project.confluenceCloudParentPageId : project.confluenceServerParentPageId %}
                 <dt>Page parente</dt><dd>{{ parent_page ?: 'Racine de l\'espace' }}</dd>
+                {% set pv_parent = target == 'cloud' ? project.confluenceCloudAcceptanceParentPageId : project.confluenceServerAcceptanceParentPageId %}
+                <dt>Page parente des PV</dt><dd>{{ pv_parent ?: 'Page de regroupement de la version' }}</dd>
             </dl>
             {% else %}
                 <p class="muted">Non configuré : cette cible sera ignorée à la publication.</p>

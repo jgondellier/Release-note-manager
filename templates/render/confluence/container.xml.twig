@@ -6,7 +6,7 @@
 <li><strong>Release note IT</strong> — développeurs, exploitation, support et équipes IT</li>
 <li><strong>Release note fonctionnelle</strong> — Product Owners, métiers, support fonctionnel</li>
 <li><strong>Nouveautés</strong> — utilisateurs opérationnels</li>
-{% if release.acceptanceReport %}<li><strong>PV de recette</strong> — procès-verbal de tests système de la version</li>{% endif %}
+{% if pv_in_container %}<li><strong>PV de recette</strong> — procès-verbal de tests système de la version</li>{% endif %}
 </ul>
 {% endset %}
 {{ c.panel(release.title, meta, '#F4F5F7', '#2451B7') }}
