@@ -1,0 +1,145 @@
+{% macro period(start, end) -%}
+    {%- if start and end and start != end -%}Du {{ start|date('d/m/Y') }}<br>au {{ end|date('d/m/Y') }}
+    {%- elseif start or end -%}{{ (start ?: end)|date('d/m/Y') }}
+    {%- else -%}<span class="rn-na">N/A</span>{%- endif -%}
+{%- endmacro %}
+{% import _self as m %}
+{% set scope = pv.scopeItems %}
+{% set tests = pv.testItems %}
+{% set anomalies = pv.anomalyItems %}
+<article class="rn-doc rn-format-acceptance">
+    <header class="rn-hero rn-hero-pv">
+        <div class="rn-kicker">Procès-verbal de tests système</div>
+        <h1>{{ pv.documentTitle }}</h1>
+        <div class="rn-chips">
+            <span class="rn-chip rn-chip-status rn-pv-{{ pv.documentStatus.value }}">{{ pv.documentStatus.label|upper }}</span>
+            <span class="rn-chip">{{ pv.versionLabel }}</span>
+            {% if pv.mepDate %}<span class="rn-chip">MEP : {{ pv.mepDate|date('d/m/Y') }}</span>{% endif %}
+            {% if pv.decision %}<span class="rn-chip rn-decision-{{ pv.decision.value }}">{{ pv.decision.label }}</span>{% endif %}
+        </div>
+    </header>
+
+    <section class="rn-section">
+        <h2><span class="rn-num">1</span> Identification de la recette</h2>
+        <table class="rn-table rn-kv">
+            <tr><th>Projet / Application / Plan produit / Chantier</th><td>{{ pv.applicationName }}</td></tr>
+            {% if pv.code %}<tr><th>Code</th><td><code>{{ pv.code }}</code></td></tr>{% endif %}
+            <tr><th>Version</th><td>{{ pv.versionLabel }}</td></tr>
+            <tr><th>Date MEP</th><td>{{ pv.mepDate ? pv.mepDate|date('d/m/Y') : '—' }}</td></tr>
+            {% if pv.subject %}<tr><th>Objet</th><td>{{ pv.subject|rn_text }}</td></tr>{% endif %}
+        </table>
+        <div class="rn-people">
+            <div class="rn-card"><h4>Responsable(s) de la recette</h4><ul>{% for p in pv.acceptanceManagerList %}<li>{{ p }}</li>{% else %}<li class="rn-na">Non renseigné</li>{% endfor %}</ul></div>
+            <div class="rn-card"><h4>Responsable(s) de la livraison</h4><ul>{% for p in pv.deliveryManagerList %}<li>{{ p }}</li>{% else %}<li class="rn-na">Non renseigné</li>{% endfor %}</ul></div>
+        </div>
+    </section>
+
+    <section class="rn-section">
+        <h2><span class="rn-num">2</span> Description des tests effectués</h2>
+
+        <h3>2.1 Déroulement de la recette</h3>
+        {% if pv.phases is empty %}
+            <p class="rn-empty">Aucune phase renseignée.</p>
+        {% else %}
+        <div class="rn-table-wrap">
+            <table class="rn-table">
+                <thead><tr><th>Jalon / Phase</th><th>Dates prévues</th><th>Dates réelles</th><th>Environnements</th><th>Commentaire</th></tr></thead>
+                <tbody>
+                {% for p in pv.phases %}
+                    <tr>
+                        <td><strong>{{ p.phase }}</strong></td>
+                        <td class="rn-nowrap">{{ m.period(p.plannedStart, p.plannedEnd) }}</td>
+                        <td class="rn-nowrap">{{ m.period(p.actualStart, p.actualEnd) }}</td>
+                        <td>{{ p.environment }}</td>
+                        <td>{{ p.comment }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <h3>2.2 Description du périmètre</h3>
+        <div class="rn-summary">
+            <div class="rn-summary-item rn-cat-feature"><strong>{{ scope|length }}</strong> fiche(s) testée(s)</div>
+            <div class="rn-summary-item rn-cat-technical"><strong>{{ tests|length }}</strong> fiche(s) avec exécution documentée</div>
+            <div class="rn-summary-item rn-cat-fix"><strong>{{ anomalies|length }}</strong> anomalie(s)</div>
+        </div>
+        <h4>Périmètre de tests</h4>
+        {% if scope is empty %}
+            <p class="rn-empty">Aucune fiche dans le périmètre (instantané Jira à actualiser ?).</p>
+        {% else %}
+        <div class="rn-table-wrap">
+            <table class="rn-table">
+                <thead><tr><th>Clé</th><th>Type</th><th>Résumé</th><th>Statut</th></tr></thead>
+                <tbody>
+                {% for i in scope %}
+                    <tr><td class="rn-nowrap"><a href="{{ i.url }}" target="_blank" rel="noopener noreferrer">{{ i.key }}</a></td><td>{{ i.type }}</td><td>{{ i.summary }}</td><td><span class="rn-status{{ i.statusCategory == 'done' ? ' is-done' }}">{{ i.status }}</span></td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if pv.scopeIntro %}<div class="rn-text">{{ pv.scopeIntro|rn_text }}</div>{% endif %}
+        <div class="rn-box rn-box-neutral"><div class="rn-box-title">Hors périmètre de tests</div>{{ pv.outOfScope ? pv.outOfScope|rn_text : '<p>N/A</p>' }}</div>
+
+        <h3>2.2.1 Exécution des tests recette</h3>
+        {% for t in tests %}
+            <div class="rn-card rn-test">
+                <div class="rn-test-head">
+                    <a href="{{ t.url }}" target="_blank" rel="noopener noreferrer"><strong>{{ t.key }}</strong></a>
+                    <span>{{ t.summary }}</span>
+                    <span class="rn-status{{ t.statusCategory == 'done' ? ' is-done' }}">{{ t.status }}</span>
+                </div>
+                {% for c in t.comments %}
+                    <div class="rn-comment">
+                        <div class="rn-comment-meta">{{ c.author ?? 'Auteur inconnu' }}{% if c.date %} · {{ c.date|date('d/m/Y H:i') }}{% endif %}</div>
+                        {{ c.text|rn_text }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="rn-empty">Aucun commentaire de test (préfixe « {{ pv.testCommentPrefix }} ») sur les fiches du périmètre.</p>
+        {% endfor %}
+
+        <h3>2.2.2 Anomalies détectées</h3>
+        <p class="rn-lead"><strong>{{ anomalies|length }} anomalie{{ anomalies|length > 1 ? 's' }} détectée{{ anomalies|length > 1 ? 's' }}</strong>{% if anomalies is not empty %}, dont {{ anomalies_done }} terminée{{ anomalies_done > 1 ? 's' }}{% endif %}.</p>
+        {% if pv.anomaliesComment %}<div class="rn-text">{{ pv.anomaliesComment|rn_text }}</div>{% endif %}
+        {% if anomalies is not empty %}
+        <div class="rn-table-wrap">
+            <table class="rn-table">
+                <thead><tr><th>Clé</th><th>Résumé</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr></thead>
+                <tbody>
+                {% for a in anomalies %}
+                    <tr><td class="rn-nowrap"><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{{ a.priority }}</td><td><span class="rn-status{{ a.statusCategory == 'done' ? ' is-done' }}">{{ a.status }}</span></td><td>{{ a.resolution ?? '—' }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </section>
+
+    <section class="rn-section">
+        <h2><span class="rn-num">3</span> Conclusion de la recette</h2>
+        <ul class="rn-decision">
+            {% for d in enum_cases('App\\Enum\\AcceptanceDecision') %}
+                <li class="{{ pv.decision == d ? 'is-selected rn-decision-' ~ d.value }}"><span class="rn-check" aria-hidden="true">{{ pv.decision == d ? '☑' : '☐' }}</span> {{ d.label }}</li>
+            {% endfor %}
+        </ul>
+        {% if pv.decision is null %}<p class="rn-empty">Décision non encore prise.</p>{% endif %}
+        {% if pv.reserves %}<div class="rn-box rn-box-warning"><div class="rn-box-title">Réserves</div>{{ pv.reserves|rn_text }}</div>{% endif %}
+        {% if pv.comments %}<div class="rn-box rn-box-info"><div class="rn-box-title">Commentaires</div>{{ pv.comments|rn_text }}</div>{% endif %}
+    </section>
+
+    <section class="rn-section">
+        <h2><span class="rn-num">4</span> Signatures</h2>
+        <div class="rn-people">
+            <div class="rn-card rn-signature"><h4>Responsable de la livraison</h4><p><strong>Nom :</strong> {{ pv.deliverySignatory ?? '' }}</p><p><strong>Date :</strong> {{ pv.deliverySignedAt ? pv.deliverySignedAt|date('d/m/Y') : '' }}</p></div>
+            <div class="rn-card rn-signature"><h4>Responsable de la recette</h4><p><strong>Nom :</strong> {{ pv.acceptanceSignatory ?? '' }}</p><p><strong>Date :</strong> {{ pv.acceptanceSignedAt ? pv.acceptanceSignedAt|date('d/m/Y') : '' }}</p></div>
+        </div>
+    </section>
+
+    <footer class="rn-footer">
+        {{ release.project.name }} · version {{ release.jiraVersionName }}{% if pv.jiraSyncedAt %} · données Jira extraites le {{ pv.jiraSyncedAt|date('d/m/Y à H:i') }}{% endif %}
+    </footer>
+</article>

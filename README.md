@@ -127,7 +127,7 @@ php bin/console doctrine:migrations:migrate
 php bin/console doctrine:schema:validate      # doit indiquer « in sync »
 ```
 
-La migration initiale crée les 8 tables principales (la seconde ajoute `publication_container`) et insère les correspondances de types par défaut
+La migration initiale crée les 8 tables principales (les suivantes ajoutent `publication_container` et `acceptance_report`) et insère les correspondances de types par défaut
 (Bug → Corrections, Story → Évolutions, Task → Tâches techniques, « * » → Autres changements, ainsi que
 les libellés français : Bogue, Récit, Tâche…).
 
@@ -305,11 +305,35 @@ Statut de la release : **Publiée** quand toutes les cibles configurées ont ét
 Une release publiée ne peut être supprimée qu'en ressaisissant le nom de la version ; les pages Confluence
 ne sont jamais supprimées par l'application. L'archivage (lecture seule) est préférable.
 
+## 16 bis. PV de recette
+
+Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests système de la version).
+
+1. **Créer le PV** : il est prérempli avec le **dernier PV du même projet** (titre du document, code,
+   responsables, phases et environnements sans leurs dates, textes, préfixe, signataires), la version
+   (« Projet - v X.Y.Z ») et la date de mise en production de la release, puis les données Jira sont lues.
+2. **Données Jira** (instantané, rafraîchi par *Actualiser depuis Jira*, sans toucher aux textes saisis) :
+   - **2.2 Périmètre** : tickets de la Fix Version hors Epics, sous-tâches et anomalies ;
+   - **2.2.1 Exécution des tests** : commentaires de ces tickets commençant par le préfixe configuré
+     (`TEST :` par défaut ; casse et espaces autour du « : » ignorés, `*TEST :*` accepté), préfixe retiré,
+     regroupés par ticket (titre = clé + résumé), avec auteur et date ;
+   - **2.2.2 Anomalies** : tickets de la version dont le type est rattaché à la catégorie « Correction »
+     (*Types de tickets*) ; le nombre et la part terminée sont calculés, un commentaire libre complète.
+   L'écran signale les fiches du périmètre sans commentaire de test.
+3. **Compléter** : identification, responsables (un par ligne), déroulement (phases avec dates prévues /
+   réelles — vides = « N/A » —, environnements, commentaires), hors périmètre, décision (acceptée sans
+   réserve / avec réserves / refusée), réserves, commentaires, signatures, statut Brouillon / Définitif.
+   Un PV définitif exige une décision ; « avec réserves » exige le texte des réserves.
+4. **Publier** : le PV apparaît comme format « PV de recette » dans l'écran de publication (Cloud et/ou
+   Server). Sa page « <Projet> <Version> — PV de recette » est rangée sous la page de regroupement de la
+   version, avec les release notes. Republication = mise à jour de la même page. Le PV n'intervient pas
+   dans le statut « Publiée » des release notes.
+
 ## 17. Tests
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 60 tests (unitaires, intégration, fonctionnels)
+php vendor/bin/phpunit                 # 67 tests (unitaires, intégration, fonctionnels)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional
@@ -432,6 +456,7 @@ erDiagram
     RELEASE_SECTION ||--o{ JIRA_TICKET : regroupe
     RELEASE_NOTE ||--o{ PUBLICATION : "format x cible"
     RELEASE_NOTE ||--o{ PUBLICATION_CONTAINER : "page de regroupement par cible"
+    RELEASE_NOTE ||--o| ACCEPTANCE_REPORT : "PV de recette"
     PUBLICATION ||--o{ PUBLICATION_ATTEMPT : historise
 
     EXTERNAL_CONNECTION {
@@ -539,6 +564,20 @@ erDiagram
         string page_title
         int confluence_page_version
         string content_hash
+    }
+    ACCEPTANCE_REPORT {
+        int id PK
+        int release_id FK "UK"
+        string document_title
+        string document_status "draft | final"
+        string application_name
+        string code
+        string version_label
+        date mep_date
+        json phases
+        string test_comment_prefix
+        string decision
+        json jira_snapshot "périmètre, tests, anomalies"
     }
     ISSUE_TYPE_MAPPING {
         int id PK

@@ -1,0 +1,25 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}PV de recette — {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › PV de recette{% endblock %}
+
+{% block body %}
+<div class="page-header"><div><h1>PV de recette</h1><p class="muted">{{ release.displayName }}</p></div></div>
+<section class="card narrow">
+    <h2>Créer le procès-verbal de tests système</h2>
+    <p>Le PV est prérempli :</p>
+    <ul>
+        <li>avec les informations du <strong>dernier PV du projet</strong> (titre, code, responsables, phases et environnements, textes, signataires), s'il en existe un ;</li>
+        <li>avec la version et la date de mise en production de la release ;</li>
+        <li>avec les données Jira de la version : périmètre (fiches hors anomalies), commentaires de tests et anomalies.</li>
+    </ul>
+    {% if release.archived %}
+        <div class="alert alert-info">Release archivée : désarchivez-la pour créer le PV.</div>
+    {% else %}
+        <form method="post" action="{{ path('acceptance_create', {id: release.id}) }}" data-busy="Création et lecture Jira…">
+            <input type="hidden" name="_token" value="{{ csrf_token('acceptance-create-' ~ release.id) }}">
+            <button class="btn btn-primary" type="submit">Créer le PV de recette</button>
+        </form>
+    {% endif %}
+</section>
+{% endblock %}

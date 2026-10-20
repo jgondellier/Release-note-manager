@@ -1,0 +1,116 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}PV de recette — {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › PV de recette{% endblock %}
+
+{% block body %}
+{% set editable = not release.archived %}
+<div class="page-header">
+    <div>
+        <h1>PV de recette</h1>
+        <p class="header-meta">
+            {{ ui.badge(report.documentStatus.label, report.documentStatus.value == 'final' ? 'success' : 'warning') }}
+            {% if report.decision %}{{ ui.badge(report.decision.label, report.decision.badge) }}{% endif %}
+            <span>{{ release.displayName }}</span>
+        </p>
+    </div>
+    <div class="actions">
+        {% if editable %}{{ ui.post_button(path('acceptance_refresh', {id: release.id}), 'acceptance-refresh-' ~ release.id, '⟳ Actualiser depuis Jira', 'secondary') }}{% endif %}
+        <a class="btn btn-secondary" href="{{ path('acceptance_preview', {id: release.id}) }}">Prévisualiser</a>
+        {% if editable %}<a class="btn btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}
+        <details class="dropdown">
+            <summary class="btn btn-ghost" aria-label="Autres actions">⋯</summary>
+            <div class="dropdown-menu">
+                <a href="{{ path('acceptance_preview_storage', {id: release.id}) }}">Source Confluence</a>
+                <a href="{{ path('publication_history', {id: release.id}) }}">Historique de publication</a>
+                {% if editable %}{{ ui.post_button(path('acceptance_delete', {id: release.id}), 'acceptance-delete-' ~ release.id, 'Supprimer le PV', 'link text-danger', 'Supprimer le PV de recette ? Une page déjà publiée dans Confluence ne sera pas supprimée.') }}{% endif %}
+            </div>
+        </details>
+    </div>
+</div>
+
+{% if report.jiraSyncError %}<div class="alert alert-danger"><strong>Dernière lecture Jira en échec :</strong> {{ report.jiraSyncError }}</div>{% endif %}
+
+<section class="card">
+    <div class="card-header"><h2>Données Jira de la version</h2><span class="small muted">{{ report.jiraSyncedAt ? 'Extraites le ' ~ report.jiraSyncedAt|date('d/m/Y à H:i') : 'Jamais extraites' }}</span></div>
+    <div class="stats">
+        {{ ui.stat(report.scopeItems|length, 'Fiches dans le périmètre', 'stat-primary') }}
+        {{ ui.stat(report.testItems|length, 'Fiches avec tests « ' ~ report.testCommentPrefix ~ ' »', 'stat-info') }}
+        {{ ui.stat(report.anomalyItems|length, 'Anomalies', report.anomalyItems is empty ? 'stat-success' : 'stat-warning') }}
+    </div>
+    <p class="small muted">Périmètre : tickets de la Fix Version hors Epics, sous-tâches et anomalies. Anomalies : types rattachés à la catégorie « Correction » dans <a href="{{ path('mapping_index') }}">Types de tickets</a>. L'actualisation ne modifie aucun texte saisi.</p>
+    {% set scope_without_tests = report.scopeItems|filter(i => i.key not in report.testItems|map(t => t.key)) %}
+    {% if report.jiraSyncedAt and scope_without_tests is not empty %}
+        <details class="callout callout-warning">
+            <summary><strong>{{ scope_without_tests|length }} fiche(s) du périmètre sans commentaire « {{ report.testCommentPrefix }} »</strong></summary>
+            <ul class="small">{% for i in scope_without_tests %}<li><a href="{{ i.url }}" target="_blank" rel="noopener noreferrer">{{ i.key }}</a> {{ i.summary }}</li>{% endfor %}</ul>
+        </details>
+    {% endif %}
+</section>
+
+{{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+<div class="grid grid-2">
+    <section class="card">
+        <h2>1. Identification de la recette</h2>
+        {{ form_row(form.documentTitle) }}
+        {{ form_row(form.documentStatus) }}
+        {{ form_row(form.applicationName) }}
+        <div class="grid grid-2 compact">{{ form_row(form.code) }}{{ form_row(form.mepDate) }}</div>
+        {{ form_row(form.versionLabel) }}
+        {{ form_row(form.subject) }}
+    </section>
+    <section class="card">
+        <h2>Responsables</h2>
+        {{ form_row(form.acceptanceManagers) }}
+        {{ form_row(form.deliveryManagers) }}
+    </section>
+</div>
+
+<section class="card">
+    <h2>2.1 Déroulement de la recette</h2>
+    <div class="phase-list" data-collection data-prototype="{{ form_widget(form.phases.vars.prototype)|e('html_attr') }}" data-index="{{ form.phases|length > 0 ? form.phases|last.vars.name + 1 : 0 }}">
+        {% for phase in form.phases %}
+            <div class="phase-row" data-collection-item>
+                {{ form_widget(phase) }}
+                {% if editable %}<button type="button" class="btn btn-sm btn-ghost text-danger" data-collection-remove>Retirer</button>{% endif %}
+            </div>
+        {% endfor %}
+    </div>
+    {% do form.phases.setRendered %}
+    {% if editable %}<button type="button" class="btn btn-sm btn-secondary" data-collection-add>＋ Ajouter une phase</button>{% endif %}
+    <p class="small muted">Laissez les dates vides pour afficher « N/A ».</p>
+</section>
+
+<div class="grid grid-2">
+    <section class="card">
+        <h2>2.2 Périmètre et tests</h2>
+        {{ form_row(form.scopeIntro) }}
+        {{ form_row(form.outOfScope) }}
+        {{ form_row(form.testCommentPrefix) }}
+        {{ form_row(form.anomaliesComment) }}
+    </section>
+    <section class="card">
+        <h2>3. Conclusion de la recette</h2>
+        {{ form_row(form.decision) }}
+        {{ form_row(form.reserves) }}
+        {{ form_row(form.comments) }}
+    </section>
+</div>
+
+<section class="card">
+    <h2>4. Signatures</h2>
+    <div class="grid grid-2">
+        <div class="grid grid-2 compact">{{ form_row(form.deliverySignatory) }}{{ form_row(form.deliverySignedAt) }}</div>
+        <div class="grid grid-2 compact">{{ form_row(form.acceptanceSignatory) }}{{ form_row(form.acceptanceSignedAt) }}</div>
+    </div>
+</section>
+
+{% if editable %}
+<div class="form-actions sticky-actions">
+    <button type="submit" class="btn btn-primary">Enregistrer le PV</button>
+    <a class="btn btn-ghost" href="{{ path('release_show', {id: release.id}) }}">Retour à la release</a>
+</div>
+{% endif %}
+{{ form_end(form) }}
+{% endblock %}

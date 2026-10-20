@@ -387,6 +387,7 @@ class ReleaseSection
             PublicationFormat::It => $this->visibleIt,
             PublicationFormat::Functional => $this->visibleFunctional,
             PublicationFormat::Communication => $this->visibleCommunication,
+            PublicationFormat::AcceptanceReport => false,
         };
     }
 
@@ -507,7 +508,7 @@ class ReleaseSection
     public function getTitleFor(PublicationFormat $format): string
     {
         return match ($format) {
-            PublicationFormat::It => $this->title,
+            PublicationFormat::It, PublicationFormat::AcceptanceReport => $this->title,
             PublicationFormat::Functional => $this->functionalTitle ?? $this->title,
             PublicationFormat::Communication => $this->communicationTitle ?? $this->functionalTitle ?? $this->title,
         };

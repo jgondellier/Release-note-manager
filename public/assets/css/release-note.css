@@ -90,3 +90,32 @@
     .rn-hero { padding: 1rem 1.1rem; }
     .rn-cards { grid-template-columns: 1fr; }
 }
+
+/* ---------- PV de recette ---------- */
+.rn-format-acceptance { --rn-accent: #2451b7; --rn-accent-soft: #eaf0fb; }
+.rn-hero-pv { border-left-width: 6px; }
+.rn-num { display: inline-grid; place-items: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--rn-accent); color: #fff; font-size: .9rem; margin-right: .4rem; vertical-align: middle; }
+.rn-format-acceptance h3 { margin-top: 1.5rem; color: var(--rn-accent); }
+.rn-format-acceptance h4 { margin-top: 1rem; }
+.rn-chip-status { font-weight: 700; letter-spacing: .04em; }
+.rn-pv-final { background: #e3fcef; border-color: #abf5d1; color: #006644; }
+.rn-pv-draft { background: #fffae6; border-color: #ffe380; color: #7a5d00; }
+.rn-decision-accepted { background: #e3fcef; color: #006644; }
+.rn-decision-accepted_with_reserves { background: #fffae6; color: #7a5d00; }
+.rn-decision-refused { background: #ffebe6; color: #bf2600; }
+.rn-kv th { width: 34%; }
+.rn-people { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.rn-people .rn-card { margin-bottom: 0; }
+.rn-people h4 { margin-top: 0 !important; }
+.rn-people ul { margin: 0; }
+.rn-na { color: var(--rn-muted); font-style: italic; }
+.rn-lead { font-size: 1.02rem; }
+.rn-test { border-left: 4px solid var(--rn-accent); }
+.rn-test-head { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-bottom: .5rem; }
+.rn-comment { background: #fafbfc; border: 1px solid var(--rn-border); border-radius: 6px; padding: .6rem .85rem; margin-top: .5rem; }
+.rn-comment-meta { font-size: .8rem; color: var(--rn-muted); margin-bottom: .2rem; }
+.rn-decision { list-style: none; padding: 0 !important; display: flex; flex-direction: column; gap: .4rem; }
+.rn-decision li { border: 1px solid var(--rn-border); border-radius: 8px; padding: .5rem .85rem; color: var(--rn-muted); }
+.rn-decision li.is-selected { font-weight: 700; border-width: 2px; }
+.rn-check { font-size: 1.1rem; margin-right: .3rem; }
+.rn-signature p { margin: .3rem 0; min-height: 1.4em; }

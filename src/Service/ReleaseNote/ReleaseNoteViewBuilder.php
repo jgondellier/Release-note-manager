@@ -129,6 +129,7 @@ final class ReleaseNoteViewBuilder
             PublicationFormat::It => $section->getItContent(),
             PublicationFormat::Functional => $section->getFunctionalContent(),
             PublicationFormat::Communication => $section->getCommunicationContent() ?? $section->getFunctionalContent(),
+            PublicationFormat::AcceptanceReport => null,
         };
         if (PublicationFormat::It === $format) {
             // En IT, le descriptif et le contenu technique sont affichés séparément.
@@ -154,6 +155,7 @@ final class ReleaseNoteViewBuilder
             PublicationFormat::It => $release->getItIntro(),
             PublicationFormat::Functional => $release->getFunctionalIntro(),
             PublicationFormat::Communication => $release->getCommunicationIntro(),
+            PublicationFormat::AcceptanceReport => null,
         };
     }
 

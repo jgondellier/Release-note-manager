@@ -223,7 +223,35 @@
         });
     }
 
+    /* ---------- Collections de formulaires (ajout / retrait de lignes) ---------- */
+    function initCollections() {
+        $$('[data-collection]').forEach((list) => {
+            const addButton = list.parentElement.querySelector('[data-collection-add]');
+            addButton?.addEventListener('click', () => {
+                const index = parseInt(list.dataset.index || '0', 10);
+                const wrapper = document.createElement('div');
+                wrapper.className = 'phase-row';
+                wrapper.setAttribute('data-collection-item', '');
+                wrapper.innerHTML = list.dataset.prototype.replace(/__name__/g, String(index));
+                const remove = document.createElement('button');
+                remove.type = 'button';
+                remove.className = 'btn btn-sm btn-ghost text-danger';
+                remove.setAttribute('data-collection-remove', '');
+                remove.textContent = 'Retirer';
+                wrapper.appendChild(remove);
+                list.appendChild(wrapper);
+                list.dataset.index = String(index + 1);
+                wrapper.querySelector('input')?.focus();
+            });
+            list.addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-collection-remove]');
+                if (btn) btn.closest('[data-collection-item]')?.remove();
+            });
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+        initCollections();
         initSidebar();
         initDismiss();
         initForms();

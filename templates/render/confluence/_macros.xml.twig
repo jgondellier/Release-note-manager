@@ -1,4 +1,6 @@
-{# Macros Confluence (format de stockage) communes à Cloud et Server/Data Center. #}
+{# Macros Confluence (format de stockage) communes à Cloud et Server/Data Center.
+   Les paramètres « body » reçoivent du XHTML déjà assaini (filtre rn_text ou bloc {% set %}
+   dont les valeurs sont échappées) : ils sont donc insérés avec |raw pour ne pas être ré-échappés. #}
 
 {% macro status(title, colour = 'Grey') -%}
 <ac:structured-macro ac:name="status"><ac:parameter ac:name="colour">{{ colour }}</ac:parameter><ac:parameter ac:name="title">{{ title }}</ac:parameter></ac:structured-macro>
@@ -6,11 +8,11 @@
 
 {# kind : info | note | tip | warning #}
 {% macro callout(kind, title, body) -%}
-{% if body %}<ac:structured-macro ac:name="{{ kind }}">{% if title %}<ac:parameter ac:name="title">{{ title }}</ac:parameter>{% endif %}<ac:rich-text-body>{{ body }}</ac:rich-text-body></ac:structured-macro>{% endif %}
+{% if body %}<ac:structured-macro ac:name="{{ kind }}">{% if title %}<ac:parameter ac:name="title">{{ title }}</ac:parameter>{% endif %}<ac:rich-text-body>{{ body|raw }}</ac:rich-text-body></ac:structured-macro>{% endif %}
 {%- endmacro %}
 
 {% macro panel(title, body, bg = '#F4F5F7', border = '#DFE1E6') -%}
-<ac:structured-macro ac:name="panel">{% if title %}<ac:parameter ac:name="title">{{ title }}</ac:parameter>{% endif %}<ac:parameter ac:name="bgColor">{{ bg }}</ac:parameter><ac:parameter ac:name="borderColor">{{ border }}</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:rich-text-body>{{ body }}</ac:rich-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="panel">{% if title %}<ac:parameter ac:name="title">{{ title }}</ac:parameter>{% endif %}<ac:parameter ac:name="bgColor">{{ bg }}</ac:parameter><ac:parameter ac:name="borderColor">{{ border }}</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:rich-text-body>{{ body|raw }}</ac:rich-text-body></ac:structured-macro>
 {%- endmacro %}
 
 {% macro toc() -%}
@@ -18,7 +20,7 @@
 {%- endmacro %}
 
 {% macro expand(title, body) -%}
-<ac:structured-macro ac:name="expand"><ac:parameter ac:name="title">{{ title }}</ac:parameter><ac:rich-text-body>{{ body }}</ac:rich-text-body></ac:structured-macro>
+<ac:structured-macro ac:name="expand"><ac:parameter ac:name="title">{{ title }}</ac:parameter><ac:rich-text-body>{{ body|raw }}</ac:rich-text-body></ac:structured-macro>
 {%- endmacro %}
 
 {% macro category(category) -%}

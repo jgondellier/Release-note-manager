@@ -25,7 +25,8 @@ use Psr\Log\LoggerInterface;
 use Symfony\Component\Lock\LockFactory;
 
 /**
- * Publication des trois formats vers Confluence Cloud et Server/DC (jusqu'à 6 cibles).
+ * Publication des trois formats (et du PV de recette s'il existe) vers Confluence Cloud
+ * et Server/DC (jusqu'à 8 cibles).
  *
  * - Chaque cible est traitée indépendamment : une erreur n'empêche pas les autres.
  * - Un verrou par (release, format, cible) + le statut « en cours » empêchent les
@@ -57,7 +58,11 @@ class PublicationService
         $project = $release->getProject();
         \assert(null !== $project);
         $rows = [];
-        foreach (PublicationFormat::cases() as $format) {
+        $formats = PublicationFormat::releaseNoteFormats();
+        if (null !== $release->getAcceptanceReport()) {
+            $formats[] = PublicationFormat::AcceptanceReport;
+        }
+        foreach ($formats as $format) {
             $title = $this->renderer->pageTitle($release, $format);
             foreach (PublicationTarget::cases() as $target) {
                 $connection = $project->getConfluenceConnection($target);
@@ -273,7 +278,8 @@ class PublicationService
         \assert(null !== $project);
         $configured = 0;
         $published = 0;
-        foreach (PublicationFormat::cases() as $format) {
+        // Le statut de la release ne dépend que des trois release notes (le PV est suivi à part).
+        foreach (PublicationFormat::releaseNoteFormats() as $format) {
             foreach ($project->getConfiguredTargets() as $target) {
                 ++$configured;
                 if (null !== $release->findPublication($format, $target)?->getPublishedAt()) {

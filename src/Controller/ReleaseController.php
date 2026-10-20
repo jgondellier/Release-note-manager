@@ -135,7 +135,7 @@ final class ReleaseController extends AbstractAppController
         return $this->render('release/show.html.twig', [
             'release' => $release,
             'sections' => $sections,
-            'formats' => PublicationFormat::cases(),
+            'formats' => PublicationFormat::releaseNoteFormats(),
         ]);
     }
 
@@ -318,7 +318,7 @@ final class ReleaseController extends AbstractAppController
         return $this->render('release/preview.html.twig', [
             'release' => $release,
             'format' => $publicationFormat,
-            'formats' => PublicationFormat::cases(),
+            'formats' => PublicationFormat::releaseNoteFormats(),
             'view' => $renderer->buildView($release, $publicationFormat),
             'html' => $renderer->renderWeb($release, $publicationFormat),
         ]);
@@ -340,7 +340,7 @@ final class ReleaseController extends AbstractAppController
         return $this->render('release/preview_storage.html.twig', [
             'release' => $release,
             'format' => $publicationFormat,
-            'formats' => PublicationFormat::cases(),
+            'formats' => PublicationFormat::releaseNoteFormats(),
             'storage' => $storage,
             'page_title' => $renderer->pageTitle($release, $publicationFormat),
             'error' => $error,

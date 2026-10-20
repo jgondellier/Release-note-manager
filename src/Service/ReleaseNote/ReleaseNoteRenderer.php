@@ -31,18 +31,35 @@ class ReleaseNoteRenderer
 
     public function renderWeb(Release $release, PublicationFormat $format): string
     {
-        return $this->twig->render(sprintf('render/web/%s.html.twig', $format->value), [
-            'doc' => $this->buildView($release, $format),
-        ]);
+        return $this->twig->render(sprintf('render/web/%s.html.twig', $format->value), $this->context($release, $format));
+    }
+
+    /** @return array<string, mixed> */
+    private function context(Release $release, PublicationFormat $format): array
+    {
+        if (PublicationFormat::AcceptanceReport === $format) {
+            $report = $release->getAcceptanceReport();
+            if (null === $report) {
+                throw new \RuntimeException('Aucun PV de recette n\'existe pour cette release.');
+            }
+            $anomalies = $report->getAnomalyItems();
+
+            return [
+                'pv' => $report,
+                'release' => $release,
+                'anomalies_done' => \count(array_filter($anomalies, static fn (array $a) => 'done' === ($a['statusCategory'] ?? null))),
+            ];
+        }
+
+        return ['doc' => $this->buildView($release, $format)];
     }
 
     public function renderStorage(Release $release, PublicationFormat $format): string
     {
-        $xml = $this->twig->render(sprintf('render/confluence/%s.xml.twig', $format->value), [
-            'doc' => $this->buildView($release, $format),
-        ]);
-        // Compactage : supprime l'indentation des templates (sans effet sur le rendu Confluence).
-        $xml = (string) preg_replace('/>\s+</u', '><', trim($xml));
+        $xml = $this->twig->render(sprintf('render/confluence/%s.xml.twig', $format->value), $this->context($release, $format));
+        // Compactage : supprime l'indentation des templates (retours à la ligne entre balises) en
+        // conservant les espaces significatifs entre éléments en ligne (badges, coche + libellé…).
+        $xml = (string) preg_replace('/>[ \t]*\R\s*</u', '><', trim($xml));
 
         $this->assertWellFormed($xml);
 
@@ -69,7 +86,7 @@ class ReleaseNoteRenderer
     public function renderContainerStorage(Release $release): string
     {
         $xml = $this->twig->render('render/confluence/container.xml.twig', ['release' => $release]);
-        $xml = (string) preg_replace('/>\s+</u', '><', trim($xml));
+        $xml = (string) preg_replace('/>[ \t]*\R\s*</u', '><', trim($xml));
         $this->assertWellFormed($xml);
 
         return $xml;

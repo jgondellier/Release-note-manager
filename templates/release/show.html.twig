@@ -24,6 +24,7 @@
             <a class="btn btn-secondary" href="{{ path('release_refresh', {id: release.id}) }}">⟳ Actualiser depuis Jira</a>
         {% endif %}
         <a class="btn btn-secondary" href="{{ path('release_preview', {id: release.id, format: 'it'}) }}">Prévisualiser</a>
+        <a class="btn btn-secondary" href="{{ path('acceptance_edit', {id: release.id}) }}">{{ release.acceptanceReport ? 'PV de recette' : '＋ PV de recette' }}</a>
         {% if editable %}<a class="btn btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}
         <details class="dropdown">
             <summary class="btn btn-ghost" aria-label="Autres actions">⋯</summary>

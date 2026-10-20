@@ -51,11 +51,12 @@ final class ReleaseNoteRendererTest extends DatabaseTestCase
         // CCS-4 non terminé : la section n'est pas présentée comme disponible.
         self::assertStringContainsString('En cours de finalisation', $communication);
 
-        foreach (PublicationFormat::cases() as $format) {
+        foreach (PublicationFormat::releaseNoteFormats() as $format) {
             $storage = $renderer->renderStorage($release, $format);
             $renderer->assertWellFormed($storage);
             self::assertStringNotContainsString('<script', $storage);
             self::assertStringNotContainsString('class="', $storage, 'Pas de CSS navigateur dans le format Confluence');
+            self::assertStringNotContainsString('&lt;p&gt;', $storage, 'Contenu des encadrés non ré-échappé');
         }
         self::assertStringContainsString('ac:name="status"', $renderer->renderStorage($release, PublicationFormat::It));
         self::assertSame('CCS 2.4.0 — Release note IT', $renderer->pageTitle($release, PublicationFormat::It));

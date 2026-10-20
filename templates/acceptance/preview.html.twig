@@ -1,0 +1,29 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Aperçu PV de recette — {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › <a href="{{ path('acceptance_edit', {id: release.id}) }}">PV de recette</a> › Aperçu{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Aperçu — PV de recette</h1>
+        <p class="muted">Titre de la page Confluence : <strong>{{ page_title }}</strong>, publiée sous la page de regroupement de la version.</p>
+    </div>
+</div>
+<div class="editor-toolbar">
+    <div class="toolbar-right">
+        <a class="btn btn-sm btn-ghost{{ html ? ' active' }}" href="{{ path('acceptance_preview', {id: release.id}) }}">Aperçu web</a>
+        <a class="btn btn-sm btn-ghost{{ storage ? ' active' }}" href="{{ path('acceptance_preview_storage', {id: release.id}) }}">Source Confluence</a>
+        <a class="btn btn-sm btn-secondary" href="{{ path('acceptance_edit', {id: release.id}) }}">← Modifier le PV</a>
+        {% if not release.archived %}<a class="btn btn-sm btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}
+    </div>
+</div>
+{% if html %}
+    <div class="preview-frame">{{ html|raw }}</div>
+{% else %}
+    <div class="card">
+        <button type="button" class="btn btn-sm btn-secondary" data-copy="#storage-source">Copier</button>
+        <pre class="code" id="storage-source">{{ storage|replace({'><': ">\n<"}) }}</pre>
+    </div>
+{% endif %}
+{% endblock %}

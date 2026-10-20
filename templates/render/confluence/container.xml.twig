@@ -1,11 +1,12 @@
 {% import 'render/confluence/_macros.xml.twig' as c %}
 {% set meta %}
 <p><strong>Projet :</strong> {{ release.project.name }} · <strong>Version :</strong> {{ release.jiraVersionName }}{% if release.releaseDate %} · <strong>Mise en production :</strong> {{ release.releaseDate|date('d/m/Y') }}{% endif %}</p>
-<p>Cette page regroupe les release notes de la version, déclinées par public :</p>
+<p>Cette page regroupe les documents de la version :</p>
 <ul>
 <li><strong>Release note IT</strong> — développeurs, exploitation, support et équipes IT</li>
 <li><strong>Release note fonctionnelle</strong> — Product Owners, métiers, support fonctionnel</li>
 <li><strong>Nouveautés</strong> — utilisateurs opérationnels</li>
+{% if release.acceptanceReport %}<li><strong>PV de recette</strong> — procès-verbal de tests système de la version</li>{% endif %}
 </ul>
 {% endset %}
 {{ c.panel(release.title, meta, '#F4F5F7', '#2451B7') }}

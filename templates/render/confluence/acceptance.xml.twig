@@ -1,0 +1,100 @@
+{% import 'render/confluence/_macros.xml.twig' as c %}
+{% macro period(start, end) -%}
+    {%- if start and end and start != end -%}Du {{ start|date('d/m/Y') }} au {{ end|date('d/m/Y') }}
+    {%- elseif start or end -%}{{ (start ?: end)|date('d/m/Y') }}
+    {%- else -%}N/A{%- endif -%}
+{%- endmacro %}
+{% import _self as m %}
+{% set scope = pv.scopeItems %}
+{% set tests = pv.testItems %}
+{% set anomalies = pv.anomalyItems %}
+{% set header %}
+<p><strong>Procès-verbal de tests système</strong></p>
+<p>{{ c.status(pv.documentStatus.label|upper, pv.documentStatus.confluenceColour) }} {{ c.status(pv.versionLabel, 'Blue') }}{% if pv.mepDate %} {{ c.status('MEP ' ~ pv.mepDate|date('d/m/Y'), 'Grey') }}{% endif %}{% if pv.decision %} {{ c.status(pv.decision.label, pv.decision.confluenceColour) }}{% endif %}</p>
+{% endset %}
+{{ c.panel(pv.documentTitle, header, '#EAF0FB', '#2451B7') }}
+{{ c.toc() }}
+
+<h2>1. Identification de la recette</h2>
+<table><tbody>
+<tr><th>Projet / Application / Plan produit / Chantier</th><td>{{ pv.applicationName }}</td></tr>
+{% if pv.code %}<tr><th>Code</th><td><code>{{ pv.code }}</code></td></tr>{% endif %}
+<tr><th>Version</th><td>{{ pv.versionLabel }}</td></tr>
+<tr><th>Date MEP</th><td>{{ pv.mepDate ? pv.mepDate|date('d/m/Y') : '—' }}</td></tr>
+{% if pv.subject %}<tr><th>Objet</th><td>{{ pv.subject|rn_text }}</td></tr>{% endif %}
+<tr><th>Responsable(s) de la recette</th><td>{% if pv.acceptanceManagerList is empty %}—{% else %}<ul>{% for p in pv.acceptanceManagerList %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}</td></tr>
+<tr><th>Responsable(s) de la livraison</th><td>{% if pv.deliveryManagerList is empty %}—{% else %}<ul>{% for p in pv.deliveryManagerList %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}</td></tr>
+</tbody></table>
+
+<h2>2. Description des tests effectués</h2>
+<h3>2.1 Déroulement de la recette</h3>
+{% if pv.phases is empty %}<p><em>Aucune phase renseignée.</em></p>{% else %}
+<table><tbody>
+<tr><th>Jalon / Phase</th><th>Dates prévues</th><th>Dates réelles</th><th>Environnements</th><th>Commentaire</th></tr>
+{% for p in pv.phases %}
+<tr><td><strong>{{ p.phase }}</strong></td><td>{{ m.period(p.plannedStart, p.plannedEnd) }}</td><td>{{ m.period(p.actualStart, p.actualEnd) }}</td><td>{{ p.environment }}</td><td>{{ p.comment }}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+
+<h3>2.2 Description du périmètre</h3>
+<p>{{ c.status(scope|length ~ ' fiche(s) testée(s)', 'Blue') }} {{ c.status(tests|length ~ ' exécution(s) documentée(s)', 'Purple') }} {{ c.status(anomalies|length ~ ' anomalie(s)', anomalies is empty ? 'Green' : 'Red') }}</p>
+<h4>Périmètre de tests</h4>
+{% if scope is empty %}<p><em>Aucune fiche dans le périmètre.</em></p>{% else %}
+<table><tbody>
+<tr><th>Clé</th><th>Type</th><th>Résumé</th><th>Statut</th></tr>
+{% for i in scope %}
+<tr><td><a href="{{ i.url }}">{{ i.key }}</a></td><td>{{ i.type }}</td><td>{{ i.summary }}</td><td>{{ c.status(i.status ?? '?', i.statusCategory == 'done' ? 'Green' : 'Grey') }}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+{% if pv.scopeIntro %}{{ pv.scopeIntro|rn_text }}{% endif %}
+{{ c.callout('note', 'Hors périmètre de tests', pv.outOfScope ? pv.outOfScope|rn_text : '<p>N/A</p>') }}
+
+<h3>2.2.1 Exécution des tests recette</h3>
+{% for t in tests %}
+{% set body %}
+{% for cm in t.comments %}
+<p><strong>{{ cm.author ?? 'Auteur inconnu' }}</strong>{% if cm.date %} — {{ cm.date|date('d/m/Y H:i') }}{% endif %}</p>
+{{ cm.text|rn_text }}
+{% if not loop.last %}<hr />{% endif %}
+{% endfor %}
+{% endset %}
+<h4><a href="{{ t.url }}">{{ t.key }}</a> — {{ t.summary }} {{ c.status(t.status ?? '?', t.statusCategory == 'done' ? 'Green' : 'Grey') }}</h4>
+{{ c.panel(null, body, '#FFFFFF', '#DFE1E6') }}
+{% else %}
+<p><em>Aucun commentaire de test (préfixe « {{ pv.testCommentPrefix }} ») sur les fiches du périmètre.</em></p>
+{% endfor %}
+
+<h3>2.2.2 Anomalies détectées</h3>
+<p><strong>{{ anomalies|length }} anomalie{{ anomalies|length > 1 ? 's' }} détectée{{ anomalies|length > 1 ? 's' }}</strong>{% if anomalies is not empty %}, dont {{ anomalies_done }} terminée{{ anomalies_done > 1 ? 's' }}{% endif %}.</p>
+{% if pv.anomaliesComment %}{{ pv.anomaliesComment|rn_text }}{% endif %}
+{% if anomalies is not empty %}
+<table><tbody>
+<tr><th>Clé</th><th>Résumé</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr>
+{% for a in anomalies %}
+<tr><td><a href="{{ a.url }}">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{{ a.priority }}</td><td>{{ c.status(a.status ?? '?', a.statusCategory == 'done' ? 'Green' : 'Red') }}</td><td>{{ a.resolution ?? '—' }}</td></tr>
+{% endfor %}
+</tbody></table>
+{% endif %}
+
+<h2>3. Conclusion de la recette</h2>
+<table><tbody>
+<tr><th>Décision</th><th>Réserves</th></tr>
+<tr><td>
+{% for d in enum_cases('App\\Enum\\AcceptanceDecision') %}
+<p>{% if pv.decision == d %}<ac:emoticon ac:name="tick" /> <strong>{{ d.label }}</strong>{% else %}☐ {{ d.label }}{% endif %}</p>
+{% endfor %}
+</td><td>{{ pv.reserves ? pv.reserves|rn_text : '<p>—</p>' }}</td></tr>
+</tbody></table>
+{{ c.callout('info', 'Commentaires', pv.comments ? pv.comments|rn_text : null) }}
+
+<h2>4. Signatures</h2>
+<table><tbody>
+<tr><th>Responsable de la livraison</th><th>Responsable de la recette</th></tr>
+<tr>
+<td><p><strong>Nom :</strong> {{ pv.deliverySignatory ?? '' }}</p><p><strong>Date :</strong> {{ pv.deliverySignedAt ? pv.deliverySignedAt|date('d/m/Y') : '' }}</p></td>
+<td><p><strong>Nom :</strong> {{ pv.acceptanceSignatory ?? '' }}</p><p><strong>Date :</strong> {{ pv.acceptanceSignedAt ? pv.acceptanceSignedAt|date('d/m/Y') : '' }}</p></td>
+</tr>
+</tbody></table>
+<hr /><p><sub>{{ release.project.name }} · version {{ release.jiraVersionName }}{% if pv.jiraSyncedAt %} · données Jira extraites le {{ pv.jiraSyncedAt|date('d/m/Y à H:i') }}{% endif %} · page générée par Release Note Manager. Les modifications manuelles de cette page seront remplacées lors de la prochaine publication.</sub></p>

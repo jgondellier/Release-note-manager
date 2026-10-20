@@ -118,6 +118,9 @@ class Release
     #[ORM\OneToMany(targetEntity: Publication::class, mappedBy: 'release', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $publications;
 
+    #[ORM\OneToOne(targetEntity: AcceptanceReport::class, mappedBy: 'release', cascade: ['persist', 'remove'])]
+    private ?AcceptanceReport $acceptanceReport = null;
+
     /** @var Collection<int, PublicationContainer> pages de regroupement Confluence (une par instance) */
     #[ORM\OneToMany(targetEntity: PublicationContainer::class, mappedBy: 'release', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $containers;
@@ -491,6 +494,19 @@ class Release
         }
 
         return null;
+    }
+
+    public function getAcceptanceReport(): ?AcceptanceReport
+    {
+        return $this->acceptanceReport;
+    }
+
+    public function setAcceptanceReport(?AcceptanceReport $acceptanceReport): static
+    {
+        $this->acceptanceReport = $acceptanceReport;
+        $acceptanceReport?->setRelease($this);
+
+        return $this;
     }
 
     /** @return Collection<int, PublicationContainer> */
