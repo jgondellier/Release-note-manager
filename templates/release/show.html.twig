@@ -112,6 +112,7 @@
                 <div class="section-badges">
                     {{ ui.category(section.category) }}
                     {% if section.sourceType.value == 'epic' %}{{ ui.badge('Epic ' ~ section.sourceKey, 'neutral', 'Titre initial issu de l\'Epic, modifiable') }}
+                    {% elseif section.sourceType.value == 'label' %}{{ ui.badge('Étiquette ' ~ section.sourceKey, 'neutral', 'Regroupement par étiquette Jira (tickets sans Epic)') }}
                     {% elseif section.sourceType.value == 'manual' %}{{ ui.badge('Manuelle', 'neutral') }}
                     {% else %}{{ ui.badge('Par type', 'neutral') }}{% endif %}
                     <span class="vis{{ section.visibleIt ? ' on' }}" title="Visible en IT">IT</span>

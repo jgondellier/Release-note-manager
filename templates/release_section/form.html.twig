@@ -10,7 +10,7 @@
         <h1>{{ is_new ? 'Nouvelle section manuelle' : 'Wording de la section' }}</h1>
         {% if not is_new %}
             <p>{{ ui.category(section.category) }}
-            {% if section.sourceType.value == 'epic' %}{{ ui.badge('Issue de l\'Epic ' ~ section.sourceKey) }}{% elseif section.sourceType.value == 'issue_type' %}{{ ui.badge('Regroupement par type') }}{% else %}{{ ui.badge('Manuelle') }}{% endif %}
+            {% if section.sourceType.value == 'epic' %}{{ ui.badge('Issue de l\'Epic ' ~ section.sourceKey) }}{% elseif section.sourceType.value == 'label' %}{{ ui.badge('Regroupement par étiquette ' ~ section.sourceKey) }}{% elseif section.sourceType.value == 'issue_type' %}{{ ui.badge('Regroupement par type') }}{% else %}{{ ui.badge('Manuelle') }}{% endif %}
             <span class="small muted">Le texte saisi ici n'est jamais remplacé par une actualisation Jira.</span></p>
         {% endif %}
     </div>

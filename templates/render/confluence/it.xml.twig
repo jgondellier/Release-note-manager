@@ -9,7 +9,7 @@
 {% if doc.sections|length > 1 %}{{ c.toc() }}{% endif %}
 {% for s in doc.sections %}
 <h2>{{ s.title }}</h2>
-<p>{{ c.category(s.category) }}{% if s.section.sourceType.value == 'epic' %} {{ c.status('Epic ' ~ s.section.sourceKey, 'Grey') }}{% endif %}{% if s.section.audience %} <em>Audience : {{ s.section.audience }}</em>{% endif %}</p>
+<p>{{ c.category(s.category) }}{% if s.section.sourceType.value == 'epic' %} {{ c.status('Epic ' ~ s.section.sourceKey, 'Grey') }}{% elseif s.section.sourceType.value == 'label' %} {{ c.status('Étiquette ' ~ s.section.sourceKey, 'Grey') }}{% endif %}{% if s.section.audience %} <em>Audience : {{ s.section.audience }}</em>{% endif %}</p>
 {% if s.section.description %}{{ s.section.description|rn_text }}{% endif %}
 {% if s.content %}<h3>Description technique</h3>{{ s.content|rn_text }}{% endif %}
 {{ c.callout('info', 'Impacts', s.section.impact|rn_text) }}

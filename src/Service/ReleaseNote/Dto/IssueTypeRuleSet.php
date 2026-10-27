@@ -18,6 +18,25 @@ final class IssueTypeRuleSet
     /** @var array<string, IssueTypeRule> */
     private array $rules = [];
     private ?IssueTypeRule $default = null;
+    private LabelRuleSet $labels;
+
+    public function __construct()
+    {
+        $this->labels = new LabelRuleSet();
+    }
+
+    /** Règles d'étiquettes (regroupement des tickets sans Epic, avant le type). */
+    public function labels(): LabelRuleSet
+    {
+        return $this->labels;
+    }
+
+    public function withLabels(LabelRuleSet $labels): self
+    {
+        $this->labels = $labels;
+
+        return $this;
+    }
 
     /** @param list<IssueTypeMapping> $mappings */
     public static function fromMappings(array $mappings): self

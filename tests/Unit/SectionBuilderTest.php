@@ -14,6 +14,7 @@ use App\Service\Jira\Dto\EpicReference;
 use App\Service\Jira\JiraIssueNormalizer;
 use App\Service\ReleaseNote\Dto\IssueTypeRule;
 use App\Service\ReleaseNote\Dto\IssueTypeRuleSet;
+use App\Service\ReleaseNote\Dto\LabelRuleSet;
 use App\Service\ReleaseNote\SectionBuilder;
 use App\Tests\Support\JiraFixtures;
 use PHPUnit\Framework\TestCase;
@@ -86,5 +87,36 @@ final class SectionBuilderTest extends TestCase
     {
         $plans = (new SectionBuilder())->build($this->issues([JiraFixtures::issue('CCS-1', 'Spike', 's')]), [], new IssueTypeRuleSet());
         self::assertSame(IssueTypeRuleSet::FALLBACK_TITLE, $plans[0]->title);
+    }
+
+    public function testTicketsWithoutEpicAreGroupedByLabelBeforeType(): void
+    {
+        $issues = $this->issues([
+            JiraFixtures::issue('CCS-2', 'Story', 'Epic gagne', ['labels' => ['gestion-client']]),
+            JiraFixtures::issue('CCS-3', 'Bug', 'Bug client', ['labels' => ['release', 'gestion-client']]),
+            JiraFixtures::issue('CCS-4', 'Story', 'Story client', ['labels' => ['gestion-client']]),
+            JiraFixtures::issue('CCS-5', 'Task', 'Libellé brut', ['labels' => ['batch-nuit']]),
+            JiraFixtures::issue('CCS-6', 'Bug', 'Seulement ignorée', ['labels' => ['release']]),
+            JiraFixtures::issue('CCS-7', 'Bug', 'Sans étiquette'),
+        ]);
+        $rules = $this->rules()->withLabels((new LabelRuleSet())
+            ->add('release', null, ignored: true)
+            ->add('gestion-client', 'Évolutions de la gestion des clients', position: 10));
+
+        $builder = new SectionBuilder();
+        $plans = $builder->build($issues, ['CCS-2' => new EpicReference('CCS-1', 'Epic')], $rules);
+        $summary = array_map(static fn ($p) => [$p->sourceType, $p->sourceKey, $p->title, $p->issueKeys], $plans);
+
+        self::assertSame([
+            [SectionSourceType::Epic, 'CCS-1', 'Epic', ['CCS-2']],
+            [SectionSourceType::Label, 'gestion-client', 'Évolutions de la gestion des clients', ['CCS-3', 'CCS-4']],
+            [SectionSourceType::Label, 'batch-nuit', 'batch-nuit', ['CCS-5']],
+            [SectionSourceType::IssueType, 'Corrections', 'Corrections', ['CCS-6', 'CCS-7']],
+        ], $summary);
+        // Catégorie non imposée par la table : déduite des tickets (tâche → technique).
+        self::assertSame(SectionCategory::Technical, $plans[2]->category);
+
+        $plan = $builder->planFor($issues[2], null, $rules);
+        self::assertSame([SectionSourceType::Label, 'gestion-client'], [$plan->sourceType, $plan->sourceKey]);
     }
 }

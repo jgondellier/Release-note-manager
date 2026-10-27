@@ -27,7 +27,7 @@ final class JiraFixtures
                 'status' => ['name' => 'Terminé', 'statusCategory' => ['key' => 'done']],
                 'priority' => ['name' => 'Medium'],
                 'components' => [['name' => 'Back-office']],
-                'labels' => ['release'],
+                'labels' => [],
                 'fixVersions' => [['id' => $versionId, 'name' => '2.4.0']],
                 'description' => null,
                 'updated' => '2026-10-01T10:00:00.000+0200',

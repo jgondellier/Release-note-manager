@@ -36,7 +36,7 @@
                 <summary>
                     <strong>{{ plan.title }}</strong>
                     {{ ui.category(plan.category) }}
-                    {{ ui.badge(plan.sourceType.value == 'epic' ? 'Epic ' ~ plan.sourceKey : 'Par type', 'neutral') }}
+                    {{ ui.badge(plan.sourceType.value == 'epic' ? 'Epic ' ~ plan.sourceKey : (plan.sourceType.value == 'label' ? 'Étiquette ' ~ plan.sourceKey : 'Par type'), 'neutral') }}
                     <span class="small muted">{{ plan.issueKeys|length }} ticket(s)</span>
                 </summary>
                 <ul class="ticket-mini">

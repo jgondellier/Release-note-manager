@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Functional;
 
 use App\Entity\ExternalConnection;
+use App\Entity\LabelMapping;
 use App\Entity\Project;
 use App\Enum\ConnectionTestStatus;
 use App\Service\Security\SecretEncryptionService;
@@ -135,5 +136,42 @@ final class AdministrationTest extends WebTestCaseBase
         self::assertResponseRedirects();
         $project = $this->em->getRepository(Project::class)->findOneBy(['code' => 'CCS']);
         self::assertSame('CCS', $project->getJiraProjectKey(), 'Clés normalisées en majuscules');
+    }
+
+    public function testLabelConversionTableCrud(): void
+    {
+        $this->login();
+        $crawler = $this->client->request('GET', '/settings/labels/new');
+        self::assertResponseIsSuccessful();
+        // Phrase obligatoire si l'étiquette n'est pas ignorée.
+        $this->client->submit($crawler->selectButton('Enregistrer')->form(['label_mapping[label]' => 'gestion-client', 'label_mapping[title]' => '']));
+        self::assertResponseStatusCodeSame(422);
+
+        $this->client->submit($this->client->getCrawler()->selectButton('Enregistrer')->form([
+            'label_mapping[label]' => 'gestion-client',
+            'label_mapping[title]' => 'Évolutions de la gestion des clients',
+            'label_mapping[position]' => '10',
+        ]));
+        self::assertResponseRedirects('/settings/labels');
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('table', 'Évolutions de la gestion des clients');
+
+        $crawler = $this->client->request('GET', '/settings/labels/new');
+        $form = $crawler->selectButton('Enregistrer')->form(['label_mapping[label]' => 'release']);
+        $form['label_mapping[ignored]']->tick();
+        $this->client->submit($form);
+        self::assertResponseRedirects('/settings/labels');
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('table', 'Ignorée');
+
+        // Doublon refusé, étiquette avec espace refusée.
+        $crawler = $this->client->request('GET', '/settings/labels/new');
+        $this->client->submit($crawler->selectButton('Enregistrer')->form(['label_mapping[label]' => 'release', 'label_mapping[title]' => 'x']));
+        self::assertResponseStatusCodeSame(422);
+        $this->client->submit($this->client->getCrawler()->selectButton('Enregistrer')->form(['label_mapping[label]' => 'deux mots', 'label_mapping[title]' => 'x']));
+        self::assertResponseStatusCodeSame(422);
+
+        self::assertSame(2, $this->em->getRepository(LabelMapping::class)->count([]));
+        self::assertTrue($this->em->getRepository(LabelMapping::class)->findOneBy(['label' => 'release'])->isIgnored());
     }
 }

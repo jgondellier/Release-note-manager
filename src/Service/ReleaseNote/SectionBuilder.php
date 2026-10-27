@@ -14,7 +14,9 @@ use App\Service\ReleaseNote\Dto\SectionPlan;
 /**
  * Regroupement automatique initial des tickets :
  * - une section par Epic (titre initial = titre de l'Epic) ;
- * - les tickets sans Epic regroupés selon les correspondances de types.
+ * - sinon, une section par étiquette Jira (titre = phrase de la table de conversion,
+ *   à défaut l'étiquette elle-même ; étiquettes « ignorées » exclues) ;
+ * - sinon, regroupement selon les correspondances de types.
  *
  * Classe sans état ni dépendance : directement testable.
  */
@@ -24,7 +26,7 @@ final class SectionBuilder
      * @param list<JiraIssue>                   $issues
      * @param array<string, EpicReference|null> $epics
      *
-     * @return list<SectionPlan> sections ordonnées : Epics (par titre) puis types (par position)
+     * @return list<SectionPlan> sections ordonnées : Epics (par titre), étiquettes (ordre de la table puis titre), types (par position)
      */
     public function build(array $issues, array $epics, IssueTypeRuleSet $rules): array
     {
@@ -32,6 +34,10 @@ final class SectionBuilder
         $epicPlans = [];
         /** @var array<string, SectionPlan> $typePlans */
         $typePlans = [];
+        /** @var array<string, SectionPlan> $labelPlans */
+        $labelPlans = [];
+        /** @var array<string, array<string, int>> $labelCategoryVotes */
+        $labelCategoryVotes = [];
         /** @var array<string, array<string, int>> $epicCategoryVotes */
         $epicCategoryVotes = [];
 
@@ -44,6 +50,16 @@ final class SectionBuilder
                 $epicPlans[$epic->key]->issueKeys[] = $issue->key;
                 if (!$issue->isEpic) {
                     $epicCategoryVotes[$epic->key][$rule->category->value] = ($epicCategoryVotes[$epic->key][$rule->category->value] ?? 0) + 1;
+                }
+                continue;
+            }
+
+            $label = $rules->labels()->resolve($issue->labels);
+            if (null !== $label) {
+                $labelPlans[$label['key']] ??= new SectionPlan(SectionSourceType::Label, $label['key'], $label['title'], $label['category'] ?? SectionCategory::Feature, $label['position']);
+                $labelPlans[$label['key']]->issueKeys[] = $issue->key;
+                if (null === $label['category']) {
+                    $labelCategoryVotes[$label['key']][$rule->category->value] = ($labelCategoryVotes[$label['key']][$rule->category->value] ?? 0) + 1;
                 }
                 continue;
             }
@@ -65,6 +81,18 @@ final class SectionBuilder
             usort($plan->issueKeys, static fn (string $a, string $b) => ($a === $key ? -1 : ($b === $key ? 1 : strnatcmp($a, $b))));
         }
 
+        // Étiquette sans catégorie imposée : catégorie majoritaire de ses tickets.
+        foreach ($labelPlans as $key => $plan) {
+            $votes = $labelCategoryVotes[$key] ?? [];
+            if ([] !== $votes) {
+                arsort($votes);
+                $plan->category = SectionCategory::from((string) array_key_first($votes));
+            }
+            usort($plan->issueKeys, 'strnatcmp');
+        }
+        $labelList = array_values($labelPlans);
+        usort($labelList, static fn (SectionPlan $a, SectionPlan $b) => $a->sortWeight <=> $b->sortWeight ?: strnatcasecmp($a->title, $b->title));
+
         $epicList = array_values($epicPlans);
         usort($epicList, static fn (SectionPlan $a, SectionPlan $b) => strnatcasecmp($a->title, $b->title));
 
@@ -74,7 +102,7 @@ final class SectionBuilder
             usort($plan->issueKeys, 'strnatcmp');
         }
 
-        return [...$epicList, ...$typeList];
+        return [...$epicList, ...$labelList, ...$typeList];
     }
 
     /**
@@ -86,6 +114,10 @@ final class SectionBuilder
             return new SectionPlan(SectionSourceType::Epic, $epic->key, $epic->name, $rules->match($issue->issueType)->category, 0);
         }
         $rule = $rules->match($issue->issueType);
+        $label = $rules->labels()->resolve($issue->labels);
+        if (null !== $label) {
+            return new SectionPlan(SectionSourceType::Label, $label['key'], $label['title'], $label['category'] ?? $rule->category, $label['position']);
+        }
 
         return new SectionPlan(SectionSourceType::IssueType, $rule->sectionTitle, $rule->sectionTitle, $rule->category, $rule->position);
     }

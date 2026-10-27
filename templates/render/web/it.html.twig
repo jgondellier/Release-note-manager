@@ -40,7 +40,7 @@
         <div class="rn-section-head">
             <h2>{{ s.title }}</h2>
             {{ m.category(s.category) }}
-            {% if s.section.sourceType.value == 'epic' %}<span class="rn-badge rn-badge-ref">Epic {{ s.section.sourceKey }}</span>{% endif %}
+            {% if s.section.sourceType.value == 'epic' %}<span class="rn-badge rn-badge-ref">Epic {{ s.section.sourceKey }}</span>{% elseif s.section.sourceType.value == 'label' %}<span class="rn-badge rn-badge-ref">Étiquette {{ s.section.sourceKey }}</span>{% endif %}
         </div>
         {% if s.section.audience %}<p class="rn-audience">Audience : {{ s.section.audience }}</p>{% endif %}
         {% if s.section.description %}<div class="rn-text">{{ s.section.description|rn_text }}</div>{% endif %}

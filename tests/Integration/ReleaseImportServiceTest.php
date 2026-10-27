@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration;
 
 use App\Entity\JiraTicket;
+use App\Entity\LabelMapping;
 use App\Entity\Release;
 use App\Enum\ReleaseStatus;
 use App\Enum\SectionSourceType;
@@ -90,5 +91,31 @@ final class ReleaseImportServiceTest extends DatabaseTestCase
 
         $this->expectExceptionMessage('n\'existe pas');
         $this->service(ReleaseImportService::class)->import($project, '99999');
+    }
+
+    public function testTicketsWithoutEpicAreGroupedByConvertedLabelAndRefreshReusesTheSection(): void
+    {
+        $project = $this->createProject();
+        $this->em->persist((new LabelMapping())->setLabel('release')->setIgnored(true));
+        $this->em->persist((new LabelMapping())->setLabel('gestion-client')->setTitle('Évolutions de la gestion des clients')->setProject($project));
+        $this->em->flush();
+        $issues = [
+            JiraFixtures::issue('CCS-4', 'Bug', 'Fiche client', ['labels' => ['release', 'gestion-client']]),
+            JiraFixtures::issue('CCS-5', 'Task', 'Purge', ['labels' => ['release']]),
+        ];
+        $this->fakeJiraCloud($issues);
+        $release = $this->service(ReleaseImportService::class)->import($project, '10042');
+
+        $sections = $release->getSections()->toArray();
+        self::assertSame(['Évolutions de la gestion des clients', 'Tâches techniques'], array_map(static fn ($s) => $s->getTitle(), $sections));
+        self::assertSame([SectionSourceType::Label, 'gestion-client'], [$sections[0]->getSourceType(), $sections[0]->getSourceKey()]);
+
+        // Un nouveau ticket portant la même étiquette rejoint la section existante (titre éventuellement retouché).
+        $sections[0]->setTitle('Gestion des clients');
+        $this->em->flush();
+        $issues[] = JiraFixtures::issue('CCS-6', 'Story', 'Recherche client', ['labels' => ['Gestion-Client']]);
+        $report = $this->service(\App\Service\ReleaseNote\ReleaseRefreshService::class)->apply($release, true, false);
+        self::assertSame(0, $report['sections_created']);
+        self::assertSame($sections[0]->getId(), $release->findTicketByKey('CCS-6')?->getSection()?->getId());
     }
 }

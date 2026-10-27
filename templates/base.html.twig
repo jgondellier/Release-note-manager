@@ -28,6 +28,7 @@
             <a href="{{ path('project_index') }}" class="{{ route starts with 'project' ? 'active' }}"><span aria-hidden="true">▣</span> Projets</a>
             <a href="{{ path('connection_index') }}" class="{{ route starts with 'connection' ? 'active' }}"><span aria-hidden="true">⇄</span> Connexions</a>
             <a href="{{ path('mapping_index') }}" class="{{ route starts with 'mapping' ? 'active' }}"><span aria-hidden="true">≡</span> Types de tickets</a>
+            <a href="{{ path('label_mapping_index') }}" class="{{ route starts with 'label_mapping' ? 'active' }}"><span aria-hidden="true">#</span> Étiquettes</a>
         </nav>
         <form method="post" action="{{ path('app_logout') }}" class="logout">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('logout') }}">

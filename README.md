@@ -6,7 +6,8 @@ publication vers **Confluence Cloud** et **Confluence Server / Data Center** (ju
 
 - Connexions Jira / Confluence (Cloud et Server/DC) administrées depuis l'interface, secrets chiffrés.
 - Import des tickets **de la seule Fix Version choisie**, pagination Cloud (`nextPageToken`) et Server (`startAt`).
-- Regroupement automatique : une section par Epic, puis par type de ticket (correspondances administrables).
+- Regroupement automatique : une section par Epic, puis par étiquette Jira pour les tickets sans Epic, puis par
+  type de ticket (table de conversion des étiquettes et correspondances de types administrables).
 - Éditeur : sections manuelles, réordonnancement (glisser-déposer), déplacement / ajout / retrait de tickets,
   wording indépendant par format, aperçu immédiat.
 - Actualisation depuis Jira **non destructive** (aucun texte éditorial ni classement modifié), avec plan préalable.
@@ -265,6 +266,31 @@ php bin/console app:connection:test 3      # une seule
    remplacés ; les tickets retirés restent en place (signalés) sauf si vous cochez explicitement
    « Détacher ».
 
+### Règles de regroupement
+
+Chaque ticket est rangé dans **une seule** section, selon cette priorité :
+
+1. **Epic** : une section par Epic (titre = résumé de l'Epic).
+2. **Étiquette** (`labels` Jira) si le ticket n'a pas d'Epic : une section par étiquette. Le menu
+   **Étiquettes** (`/settings/labels`) contient la **table de conversion** mot-clé → phrase lisible :
+
+   | Étiquette | Phrase lisible | Effet |
+   |---|---|---|
+   | `gestion-client` | Évolutions de la gestion des clients | titre de la section |
+   | `release` | *(ignorée)* | ne crée jamais de section |
+
+   - casse ignorée (`Gestion-Client` = `gestion-client`) ; une règle propre à un projet l'emporte sur une
+     règle globale ;
+   - ticket portant plusieurs étiquettes : les étiquettes **converties** passent d'abord, par *priorité*
+     croissante ; à défaut, la première étiquette par ordre alphabétique, avec son nom brut comme titre ;
+   - la catégorie (badge) peut être imposée, sinon elle suit le type majoritaire des tickets ;
+   - cochez **Ignorer** pour les étiquettes techniques (`release`, `sprint-12`…).
+3. **Type de ticket** (menu *Types de tickets*) pour les tickets sans Epic ni étiquette utile.
+
+La table s'applique aux **prochains imports et actualisations** : les releases existantes ne sont pas
+réorganisées, mais un nouveau ticket portant une étiquette déjà présente rejoint la section existante, même
+si son titre a été retouché.
+
 Syntaxe des champs de texte : ligne vide = paragraphe, `- ` = puce, `1. ` = liste numérotée,
 `**gras**`, `` `code` ``, URL → lien. Tout le reste est échappé (aucun HTML saisi n'est interprété).
 
@@ -364,7 +390,7 @@ Les tests utilisent une base **SQLite** isolée (`var/test.db`, extension `pdo_s
 n'est contactée.
 
 Couverture fonctionnelle : authentification par token (succès, échec, CSRF, déconnexion), refus d'accès
-anonyme, validation des formulaires, chiffrement/déchiffrement, regroupement par Epic et par type, respect de
+anonyme, validation des formulaires, chiffrement/déchiffrement, regroupement par Epic, par étiquette (conversion, priorité, étiquettes ignorées) et par type, respect de
 la Fix Version (JQL + filtrage défensif), pagination Cloud et Server, absence de doublons à l'import et à
 l'actualisation, actualisation sans perte de wording ni de classement, rendu des trois formats (et XHTML
 Confluence bien formé), création / mise à jour de pages Cloud et Server, conflit de version, isolation des
@@ -470,6 +496,7 @@ erDiagram
     EXTERNAL_CONNECTION ||--o{ PROJECT : "jira / confluence cloud / confluence server"
     PROJECT ||--o{ RELEASE_NOTE : contient
     PROJECT ||--o{ ISSUE_TYPE_MAPPING : "règles spécifiques (optionnel)"
+    PROJECT ||--o{ LABEL_MAPPING : "conversions spécifiques (optionnel)"
     RELEASE_NOTE ||--o{ RELEASE_SECTION : contient
     RELEASE_NOTE ||--o{ JIRA_TICKET : importe
     RELEASE_SECTION ||--o{ JIRA_TICKET : regroupe
@@ -597,6 +624,15 @@ erDiagram
         string test_comment_prefix
         string decision
         json jira_snapshot "périmètre, tests, anomalies"
+    }
+    LABEL_MAPPING {
+        int id PK
+        int project_id FK "NULL = global"
+        string label "unique par projet"
+        string title "phrase lisible"
+        string category "NULL = automatique"
+        bool ignored
+        int position
     }
     ISSUE_TYPE_MAPPING {
         int id PK

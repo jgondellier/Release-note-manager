@@ -1,0 +1,17 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Conversion d'étiquette{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('label_mapping_index') }}">Étiquettes</a> › {{ is_new ? 'Nouvelle' : mapping.label }}{% endblock %}
+
+{% block body %}
+<div class="page-header"><h1>{{ is_new ? 'Nouvelle conversion d\'étiquette' : 'Modifier la conversion' }}</h1></div>
+<section class="card narrow">
+    {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_widget(form) }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+            <a class="btn btn-ghost" href="{{ path('label_mapping_index') }}">Annuler</a>
+        </div>
+    {{ form_end(form) }}
+</section>
+{% endblock %}

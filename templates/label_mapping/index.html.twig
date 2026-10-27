@@ -1,0 +1,41 @@
+{% extends 'base.html.twig' %}
+{% import '_components/ui.html.twig' as ui %}
+
+{% block title %}Étiquettes{% endblock %}
+{% block breadcrumbs %}Administration › Étiquettes{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Conversion des étiquettes Jira</h1>
+        <p class="muted">Les tickets <strong>sans Epic</strong> sont regroupés par étiquette avant le regroupement par type. Cette table transforme le mot-clé en titre de section lisible. Un ticket portant plusieurs étiquettes va dans celle de plus petite priorité ; une étiquette absente de la table crée une section à son nom.</p>
+    </div>
+    <div class="actions"><a class="btn btn-primary" href="{{ path('label_mapping_new') }}">＋ Nouvelle conversion</a></div>
+</div>
+<section class="card">
+    {% if mappings is empty %}
+        {{ ui.empty('Aucune conversion', 'Sans conversion, la section porte le nom brut de l\'étiquette.', path('label_mapping_new'), 'Ajouter') }}
+    {% else %}
+    <div class="table-wrap">
+        <table class="table">
+            <thead><tr><th>Périmètre</th><th>Étiquette</th><th>Phrase lisible</th><th>Catégorie</th><th>Priorité</th><th></th></tr></thead>
+            <tbody>
+            {% for m in mappings %}
+                <tr>
+                    <td>{{ m.project ? m.project.name : 'Global' }}</td>
+                    <td><code>{{ m.label }}</code></td>
+                    <td>{% if m.ignored %}{{ ui.badge('Ignorée', 'muted') }}{% else %}{{ m.title }}{% endif %}</td>
+                    <td>{{ m.category ? ui.category(m.category) : '<span class="small muted">Automatique</span>' }}</td>
+                    <td>{{ m.position }}</td>
+                    <td class="nowrap">
+                        <a class="btn btn-sm btn-secondary" href="{{ path('label_mapping_edit', {id: m.id}) }}">Modifier</a>
+                        {{ ui.post_button(path('label_mapping_delete', {id: m.id}), 'label-mapping-delete-' ~ m.id, 'Supprimer', 'ghost btn-sm', 'Supprimer cette conversion ?') }}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</section>
+{% endblock %}
