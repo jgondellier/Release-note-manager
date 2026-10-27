@@ -37,9 +37,9 @@ class LabelMapping
     private ?Project $project = null;
 
     /** Étiquette Jira telle que saisie dans les tickets (mot-clé, sans espace). */
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 150)]
     #[Assert\NotBlank(message: 'Indiquez l\'étiquette Jira.')]
-    #[Assert\Length(max: 255)]
+    #[Assert\Length(max: 150)]
     #[Assert\Regex(pattern: '/^\S+$/', message: 'Une étiquette Jira ne contient pas d\'espace.')]
     private string $label = '';
 

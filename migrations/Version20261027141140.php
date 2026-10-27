@@ -9,6 +9,9 @@ use Doctrine\Migrations\AbstractMigration;
 
 /**
  * Table de conversion des étiquettes Jira (regroupement des tickets sans Epic).
+ *
+ * label limité à 150 caractères : l'index unique (project_id, label) doit tenir dans 767 octets
+ * en utf8mb4 sur les serveurs MySQL / MariaDB en format de ligne COMPACT.
  */
 final class Version20261027141140 extends AbstractMigration
 {
@@ -21,7 +24,7 @@ final class Version20261027141140 extends AbstractMigration
     {
         $this->abortIf(!$this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\AbstractMySQLPlatform, 'Cette migration cible MySQL/MariaDB.');
 
-        $this->addSql('CREATE TABLE label_mapping (id INT AUTO_INCREMENT NOT NULL, label VARCHAR(255) NOT NULL, title VARCHAR(255) DEFAULT NULL, category VARCHAR(20) DEFAULT NULL, ignored TINYINT DEFAULT 0 NOT NULL, position INT DEFAULT 100 NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, project_id INT DEFAULT NULL, UNIQUE INDEX uniq_label_mapping_project_label (project_id, label), INDEX IDX_F56785A3166D1F9C (project_id), PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4');
+        $this->addSql('CREATE TABLE label_mapping (id INT AUTO_INCREMENT NOT NULL, label VARCHAR(150) NOT NULL, title VARCHAR(255) DEFAULT NULL, category VARCHAR(20) DEFAULT NULL, ignored TINYINT DEFAULT 0 NOT NULL, position INT DEFAULT 100 NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL, project_id INT DEFAULT NULL, UNIQUE INDEX uniq_label_mapping_project_label (project_id, label), INDEX IDX_F56785A3166D1F9C (project_id), PRIMARY KEY (id)) DEFAULT CHARACTER SET utf8mb4');
         $this->addSql('ALTER TABLE label_mapping ADD CONSTRAINT FK_F56785A3166D1F9C FOREIGN KEY (project_id) REFERENCES project (id) ON DELETE CASCADE');
     }
 
