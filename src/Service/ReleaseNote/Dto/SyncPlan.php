@@ -37,12 +37,21 @@ final class SyncPlan
     /** @var list<array{ticket: JiraTicket, from: ?string, to: ?string}> Epic modifié dans Jira (classement conservé) */
     public array $epicChanges = [];
 
+    /**
+     * Tickets dont le regroupement (Epic, étiquette, type) a changé dans Jira.
+     * automatic = ticket encore dans la section du regroupement automatique → déplacé ;
+     * sinon classé à la main → laissé en place.
+     *
+     * @var list<array{ticket: JiraTicket, from: ?ReleaseSection, plan: SectionPlan, target: ?ReleaseSection, automatic: bool}>
+     */
+    public array $regroupings = [];
+
     /** @var array<string, SectionPlan> sections à créer, par clé de regroupement */
     public array $newSections = [];
 
     public function hasEditorialImpact(): bool
     {
-        return [] !== $this->removedFromVersion || [] !== $this->inaccessible || [] !== $this->newSections;
+        return [] !== $this->removedFromVersion || [] !== $this->inaccessible || [] !== $this->newSections || [] !== $this->regroupings;
     }
 
     /** @return array<string, int> */
@@ -56,6 +65,7 @@ final class SyncPlan
             'inaccessible' => \count($this->inaccessible),
             'sections_created' => \count($this->newSections),
             'epic_changes' => \count($this->epicChanges),
+            'regroupings' => \count(array_filter($this->regroupings, static fn (array $r) => $r['automatic'])),
         ];
     }
 }

@@ -46,7 +46,7 @@
     </section>
 </div>
 
-{% if plan.hasEditorialImpact or plan.epicChanges is not empty %}
+{% if plan.hasEditorialImpact %}
 <section class="card card-alert">
     <h2>Changements à impact éditorial</h2>
     {% if plan.removedFromVersion is not empty %}
@@ -61,10 +61,16 @@
         <h3>Sections proposées pour les nouveaux tickets ({{ plan.newSections|length }})</h3>
         <ul>{% for p in plan.newSections %}<li>{{ p.title }} {{ ui.category(p.category) }}</li>{% endfor %}</ul>
     {% endif %}
-    {% if plan.epicChanges is not empty %}
-        <h3>Epic modifié dans Jira ({{ plan.epicChanges|length }})</h3>
-        <p class="small muted">Information uniquement : le classement manuel actuel est conservé.</p>
-        <ul>{% for c in plan.epicChanges %}<li><code>{{ c.ticket.jiraKey }}</code> : {{ c.from ?? 'aucun' }} → {{ c.to ?? 'aucun' }}</li>{% endfor %}</ul>
+    {% set moves = plan.regroupings|filter(r => r.automatic) %}
+    {% set kept = plan.regroupings|filter(r => not r.automatic) %}
+    {% if moves is not empty %}
+        <h3>Epic ou étiquette modifié dans Jira : tickets à reclasser ({{ moves|length }})</h3>
+        <ul>{% for r in moves %}<li><code>{{ r.ticket.jiraKey }}</code> {{ r.ticket.summary }} : « {{ r.from.title }} » → « {{ r.target ? r.target.title : r.plan.title }} »{% if not r.target %} <span class="small muted">(nouvelle section)</span>{% endif %}</li>{% endfor %}</ul>
+        <p class="small muted">Une section automatique qui se retrouve vide et sans aucun texte rédigé est supprimée.</p>
+    {% endif %}
+    {% if kept is not empty %}
+        <h3>Regroupement modifié dans Jira, classement manuel conservé ({{ kept|length }})</h3>
+        <ul>{% for r in kept %}<li><code>{{ r.ticket.jiraKey }}</code> {{ r.ticket.summary }} : reste dans « {{ r.from.title }} » (regroupement Jira : « {{ r.plan.title }} »)</li>{% endfor %}</ul>
     {% endif %}
 </section>
 {% endif %}
@@ -74,6 +80,7 @@
     <form method="post" action="{{ path('release_refresh_apply', {id: release.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token('release-refresh-' ~ release.id) }}">
         <label class="check"><input type="checkbox" name="create_sections" value="1" checked> <span>Créer les sections proposées (sinon les nouveaux tickets vont dans « Non classés »)</span></label>
+        <label class="check"><input type="checkbox" name="reclassify" value="1" checked> <span>Reclasser les tickets dont l'Epic ou l'étiquette a changé dans Jira (les tickets classés à la main ne sont jamais déplacés)</span></label>
         <label class="check"><input type="checkbox" name="detach_removed" value="1"> <span>Détacher de leur section les tickets retirés ou inaccessibles (sinon ils restent en place, signalés)</span></label>
         <div class="form-actions">
             <button type="submit" class="btn btn-primary">Appliquer l'actualisation</button>

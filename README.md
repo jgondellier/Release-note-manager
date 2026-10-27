@@ -10,7 +10,8 @@ publication vers **Confluence Cloud** et **Confluence Server / Data Center** (ju
   type de ticket (table de conversion des étiquettes et correspondances de types administrables).
 - Éditeur : sections manuelles, réordonnancement (glisser-déposer), déplacement / ajout / retrait de tickets,
   wording indépendant par format, aperçu immédiat.
-- Actualisation depuis Jira **non destructive** (aucun texte éditorial ni classement modifié), avec plan préalable.
+- Actualisation depuis Jira **non destructive** (aucun texte éditorial modifié, classements manuels conservés ;
+  reclassement des tickets dont l'Epic ou l'étiquette a changé), avec plan préalable.
 - Rendu web soigné + rendu au format de stockage Confluence (macros natives).
 - Publication création/mise à jour sans doublon, statut par cible, historique, nouvelles tentatives, verrous.
 
@@ -262,9 +263,14 @@ php bin/console app:connection:test 3      # une seule
    *Modifier le wording* (formulaire à onglets + aperçu immédiat), déplacement de tickets (liste déroulante),
    retrait/réinclusion, ajout par clé, section manuelle.
 6. **Actualiser depuis Jira** : un plan est présenté (ajouts, métadonnées, retraits potentiels, sections
-   proposées, Epic modifiés) ; rien n'est appliqué avant confirmation. Les titres et textes ne sont jamais
+   proposées, reclassements) ; rien n'est appliqué avant confirmation. Les titres et textes ne sont jamais
    remplacés ; les tickets retirés restent en place (signalés) sauf si vous cochez explicitement
    « Détacher ».
+   **Reclassement** (case cochée par défaut) : si l'Epic ou l'étiquette d'un ticket a changé dans Jira, le
+   ticket rejoint la section correspondante (créée au besoin), à condition qu'il soit encore dans la section où
+   le regroupement automatique l'avait placé. Un ticket déplacé à la main n'est jamais déplacé (il est
+   seulement signalé). Une section automatique vidée par le reclassement est supprimée si aucun texte n'y a
+   été rédigé ; sinon elle est conservée.
 
 ### Règles de regroupement
 
@@ -289,7 +295,7 @@ Chaque ticket est rangé dans **une seule** section, selon cette priorité :
 
 La table s'applique aux **prochains imports et actualisations** : les releases existantes ne sont pas
 réorganisées, mais un nouveau ticket portant une étiquette déjà présente rejoint la section existante, même
-si son titre a été retouché.
+si son titre a été retouché, et un ticket dont l'étiquette change dans Jira est reclassé à l'actualisation.
 
 Syntaxe des champs de texte : ligne vide = paragraphe, `- ` = puce, `1. ` = liste numérotée,
 `**gras**`, `` `code` ``, URL → lien. Tout le reste est échappé (aucun HTML saisi n'est interprété).

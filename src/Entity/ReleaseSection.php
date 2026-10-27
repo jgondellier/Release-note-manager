@@ -514,6 +514,19 @@ class ReleaseSection
         };
     }
 
+    /** Vrai si un texte a été rédigé dans l'un des formats (le titre seul ne compte pas). */
+    public function hasEditorialContent(): bool
+    {
+        foreach ([$this->description, $this->itContent, $this->risks, $this->validation, $this->functionalTitle, $this->functionalContent,
+            $this->communicationTitle, $this->communicationContent, $this->impact, $this->actionRequired, $this->audience, $this->links] as $value) {
+            if (null !== $value && '' !== trim($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static function clean(?string $value): ?string
     {
         if (null === $value) {

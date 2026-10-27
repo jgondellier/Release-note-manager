@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\ReleaseNote;
 
+use App\Entity\JiraTicket;
 use App\Enum\SectionCategory;
 use App\Enum\SectionSourceType;
 use App\Service\Jira\Dto\EpicReference;
@@ -110,11 +111,29 @@ final class SectionBuilder
      */
     public function planFor(JiraIssue $issue, ?EpicReference $epic, IssueTypeRuleSet $rules): SectionPlan
     {
+        return $this->planForValues($issue->issueType, $issue->labels, $epic, $rules);
+    }
+
+    /**
+     * Section où le regroupement automatique aurait placé un ticket déjà importé, d'après ses données
+     * connues avant actualisation.
+     */
+    public function planForTicket(JiraTicket $ticket, IssueTypeRuleSet $rules): SectionPlan
+    {
+        $epicKey = $ticket->getEpicKey();
+        $epic = null === $epicKey ? null : new EpicReference($epicKey, $ticket->getEpicName() ?? $epicKey);
+
+        return $this->planForValues($ticket->getIssueType(), $ticket->getLabels(), $epic, $rules);
+    }
+
+    /** @param list<string> $labels */
+    private function planForValues(string $issueType, array $labels, ?EpicReference $epic, IssueTypeRuleSet $rules): SectionPlan
+    {
         if (null !== $epic) {
-            return new SectionPlan(SectionSourceType::Epic, $epic->key, $epic->name, $rules->match($issue->issueType)->category, 0);
+            return new SectionPlan(SectionSourceType::Epic, $epic->key, $epic->name, $rules->match($issueType)->category, 0);
         }
-        $rule = $rules->match($issue->issueType);
-        $label = $rules->labels()->resolve($issue->labels);
+        $rule = $rules->match($issueType);
+        $label = $rules->labels()->resolve($labels);
         if (null !== $label) {
             return new SectionPlan(SectionSourceType::Label, $label['key'], $label['title'], $label['category'] ?? $rule->category, $label['position']);
         }

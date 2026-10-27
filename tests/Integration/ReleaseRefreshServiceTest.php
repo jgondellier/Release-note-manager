@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration;
 
+use App\Entity\LabelMapping;
 use App\Entity\Release;
 use App\Enum\TicketSyncState;
 use App\Service\ReleaseNote\ReleaseImportService;
@@ -103,5 +104,78 @@ final class ReleaseRefreshServiceTest extends DatabaseTestCase
         $ccs5 = $release->findTicketByKey('CCS-5');
         self::assertSame(TicketSyncState::Inaccessible, $ccs5->getSyncState());
         self::assertNull($ccs5->getSection(), 'Détaché car l\'option a été explicitement cochée');
+    }
+
+    public function testLabelOrEpicChangedInJiraReclassifiesAutomaticallyGroupedTicketsOnly(): void
+    {
+        $project = $this->createProject();
+        $this->em->persist((new LabelMapping())->setLabel('gestion-client')->setTitle('Gestion des clients'));
+        $this->em->persist((new LabelMapping())->setLabel('facturation')->setTitle('Facturation'));
+        $this->em->flush();
+        $epic = JiraFixtures::parent('CCS-1', 'Recherche');
+        $issues = [
+            JiraFixtures::issue('CCS-1', 'Epic', 'Recherche', [], '10042', true),
+            JiraFixtures::issue('CCS-2', 'Story', 'Filtrer', ['parent' => $epic]),
+            JiraFixtures::issue('CCS-4', 'Story', 'Fiche client', ['labels' => ['gestion-client']]),
+            JiraFixtures::issue('CCS-5', 'Bug', 'Purge', ['labels' => ['batch-nuit']]),
+            JiraFixtures::issue('CCS-8', 'Bug', 'Relance', ['labels' => ['batch-nuit']]),
+            JiraFixtures::issue('CCS-6', 'Bug', 'Libellé'),
+            JiraFixtures::issue('CCS-7', 'Bug', 'Bouton'),
+        ];
+        $this->fakeJiraCloud($issues);
+        $release = $this->service(ReleaseImportService::class)->import($project, '10042');
+        self::assertSame(['Recherche', 'Gestion des clients', 'batch-nuit', 'Corrections'], array_map(static fn ($s) => $s->getTitle(), $release->getSections()->toArray()));
+        [$epicSection, $clientSection, $batchSection, $fixSection] = $release->getSections()->toArray();
+        $batchSection->setFunctionalContent('Texte rédigé');
+        // Classement manuel : CCS-6 placé dans la section d'Epic.
+        $this->service(ReleaseSectionService::class)->moveTicket($release->findTicketByKey('CCS-6'), $epicSection);
+
+        // Dans Jira : étiquettes et Epic modifiés.
+        $issues[2]['fields']['labels'] = ['facturation'];          // CCS-4 : gestion-client → facturation
+        $issues[3]['fields']['labels'] = [];                        // CCS-5 : plus d'étiquette → par type
+        $issues[4]['fields']['parent'] = $epic;                     // CCS-8 : rattaché à l'Epic
+        $issues[5]['fields']['labels'] = ['gestion-client'];        // CCS-6 : classé à la main, ne bouge pas
+        $issues[6]['fields']['labels'] = ['facturation'];           // CCS-7 : rejoint la même nouvelle section
+
+        $refresh = $this->service(ReleaseRefreshService::class);
+        $plan = $refresh->plan($release);
+        $moves = array_filter($plan->regroupings, static fn ($r) => $r['automatic']);
+        self::assertSame(['CCS-4', 'CCS-5', 'CCS-8', 'CCS-7'], array_values(array_map(static fn ($r) => $r['ticket']->getJiraKey(), $moves)));
+        self::assertSame(['CCS-6'], array_values(array_map(static fn ($r) => $r['ticket']->getJiraKey(), array_filter($plan->regroupings, static fn ($r) => !$r['automatic']))));
+        self::assertSame(['Facturation'], array_values(array_map(static fn ($p) => $p->title, $plan->newSections)));
+
+        $report = $refresh->apply($release);
+        self::assertSame(4, $report['regroupings']);
+        self::assertSame(1, $report['sections_removed']);
+
+        $this->em->clear();
+        $release = $this->em->find(Release::class, $release->getId());
+        $sectionOf = static fn (string $key) => $release->findTicketByKey($key)?->getSection()?->getTitle();
+        self::assertSame('Facturation', $sectionOf('CCS-4'));
+        self::assertSame('Corrections', $sectionOf('CCS-5'));
+        self::assertSame('Recherche', $sectionOf('CCS-8'));
+        self::assertSame('Recherche', $sectionOf('CCS-6'));
+        self::assertSame('Facturation', $sectionOf('CCS-7'));
+        self::assertSame('Recherche', $sectionOf('CCS-1'));
+        // « Gestion des clients » vidée sans texte → supprimée ; « batch-nuit » vidée mais rédigée → conservée.
+        self::assertSame(['Recherche', 'batch-nuit', 'Corrections', 'Facturation'], array_map(static fn ($s) => $s->getTitle(), $release->getSections()->toArray()));
+
+        // Seconde actualisation : plus rien à reclasser.
+        self::assertSame([], $this->service(ReleaseRefreshService::class)->plan($release)->regroupings);
+    }
+
+    public function testReclassificationCanBeDisabled(): void
+    {
+        $project = $this->createProject();
+        $issues = [JiraFixtures::issue('CCS-4', 'Bug', 'A', ['labels' => ['ancien']])];
+        $this->fakeJiraCloud($issues);
+        $release = $this->service(ReleaseImportService::class)->import($project, '10042');
+        $issues[0]['fields']['labels'] = ['nouveau'];
+
+        $report = $this->service(ReleaseRefreshService::class)->apply($release, true, false, false);
+
+        self::assertSame(0, $report['regroupings']);
+        self::assertSame('ancien', $release->findTicketByKey('CCS-4')->getSection()?->getTitle());
+        self::assertSame(['nouveau'], $release->findTicketByKey('CCS-4')->getLabels());
     }
 }

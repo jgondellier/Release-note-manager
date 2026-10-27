@@ -120,4 +120,28 @@ final class ReleaseEditorTest extends WebTestCaseBase
         $this->client->request('GET', '/sections/' . $epic->getId() . '/edit');
         self::assertResponseRedirects('/releases/' . $release->getId());
     }
+
+    public function testRefreshScreenProposesReclassificationWhenLabelChanged(): void
+    {
+        $project = $this->project();
+        $issues = [JiraFixtures::issue('CCS-4', 'Bug', 'Date erronée', ['labels' => ['ancien-lot']])];
+        $this->server->on('POST', '/rest/api/3/search/jql', static function () use (&$issues) {
+            return ['issues' => $issues, 'isLast' => true];
+        });
+        $release = static::getContainer()->get(\App\Service\ReleaseNote\ReleaseImportService::class)->import($project, '10042');
+        $issues[0]['fields']['labels'] = ['nouveau-lot'];
+        $this->login();
+
+        $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/refresh');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.card-alert', 'tickets à reclasser (1)');
+        self::assertSelectorTextContains('.card-alert', '« ancien-lot » → « nouveau-lot »');
+
+        $this->client->submit($crawler->selectButton('Appliquer l\'actualisation')->form());
+        self::assertResponseRedirects();
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('body', '1 reclassé(s)');
+        $this->em->clear();
+        self::assertSame('nouveau-lot', $this->em->find(Release::class, $release->getId())->findTicketByKey('CCS-4')->getSection()?->getTitle());
+    }
 }

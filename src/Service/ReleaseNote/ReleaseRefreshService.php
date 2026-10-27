@@ -7,6 +7,7 @@ namespace App\Service\ReleaseNote;
 use App\Entity\JiraTicket;
 use App\Entity\Release;
 use App\Entity\ReleaseSection;
+use App\Enum\SectionSourceType;
 use App\Enum\TicketSyncState;
 use App\Service\Http\ExternalApiException;
 use App\Service\Jira\Dto\EpicReference;
@@ -14,6 +15,7 @@ use App\Service\Jira\Dto\JiraIssue;
 use App\Service\Jira\JiraEpicResolver;
 use App\Service\Jira\JiraIssueService;
 use App\Service\Jira\JiraVersionService;
+use App\Service\ReleaseNote\Dto\IssueTypeRuleSet;
 use App\Service\ReleaseNote\Dto\SectionPlan;
 use App\Service\ReleaseNote\Dto\SyncPlan;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,8 +25,11 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Garanties :
  * - aucun titre ni texte éditorial n'est modifié (seules les métadonnées des tickets le sont) ;
- * - les tickets existants restent dans leur section et à leur position ;
- * - aucune section n'est réinitialisée ni supprimée ;
+ * - les tickets existants restent dans leur section, sauf ceux dont l'Epic ou l'étiquette a changé dans Jira
+ *   et qui sont encore dans la section du regroupement automatique (reclassement, désactivable) ;
+ *   un ticket classé à la main n'est jamais déplacé ;
+ * - aucune section n'est réinitialisée ; seule une section automatique vidée par le reclassement et
+ *   sans aucun texte rédigé est supprimée ;
  * - les tickets retirés/inaccessibles sont signalés, détachés uniquement sur demande explicite ;
  * - les nouveaux tickets sont ajoutés sans doublon (identifiant Jira puis clé).
  */
@@ -78,7 +83,7 @@ class ReleaseRefreshService
                 continue;
             }
             $matchedIssueIds[$issue->id] = true;
-            $this->classifyExisting($plan, $ticket, $issue, $epics[$issue->key] ?? null);
+            $this->classifyExisting($plan, $release, $rules, $ticket, $issue, $epics[$issue->key] ?? null);
         }
 
         // Tickets absents de la JQL : retirés de la version, ou inaccessibles.
@@ -91,7 +96,7 @@ class ReleaseRefreshService
                 if (null === $issue) {
                     $plan->inaccessible[] = $ticket;
                 } elseif ($ticket->isAddedManually()) {
-                    $this->classifyExisting($plan, $ticket, $issue, $missingEpics[$issue->key] ?? null);
+                    $this->classifyExisting($plan, $release, $rules, $ticket, $issue, $missingEpics[$issue->key] ?? null);
                 } else {
                     $plan->removedFromVersion[] = ['ticket' => $ticket, 'issue' => $issue, 'epic' => $missingEpics[$issue->key] ?? null];
                 }
@@ -107,8 +112,7 @@ class ReleaseRefreshService
             $sectionPlan = $this->sectionBuilder->planFor($issue, $epic, $rules);
             $section = $this->findSection($release, $sectionPlan);
             if (null === $section) {
-                $groupKey = $sectionPlan->sourceType->value . ':' . mb_strtolower($sectionPlan->sourceKey);
-                $plan->newSections[$groupKey] ??= $sectionPlan;
+                $plan->newSections[$sectionPlan->groupKey()] ??= $sectionPlan;
             }
             $plan->new[] = ['issue' => $issue, 'epic' => $epic, 'section' => $section, 'plan' => $sectionPlan];
         }
@@ -121,10 +125,11 @@ class ReleaseRefreshService
      *
      * @param bool $createSections crée les sections proposées pour les nouveaux Epics/types (sinon : tickets « non classés »)
      * @param bool $detachRemoved  détache de leur section les tickets retirés/inaccessibles (action éditoriale explicite)
+     * @param bool $reclassify     déplace les tickets dont l'Epic ou l'étiquette a changé (s'ils n'ont pas été classés à la main)
      *
      * @return array<string, int|string>
      */
-    public function apply(Release $release, bool $createSections = true, bool $detachRemoved = false): array
+    public function apply(Release $release, bool $createSections = true, bool $detachRemoved = false, bool $reclassify = true): array
     {
         try {
             $plan = $this->plan($release);
@@ -188,8 +193,7 @@ class ReleaseRefreshService
             $this->ticketMapper->apply($ticket, $issue, $row['epic']);
             $release->addTicket($ticket);
 
-            $groupKey = $row['plan']->sourceType->value . ':' . mb_strtolower($row['plan']->sourceKey);
-            $section = $row['section'] ?? $createdSections[$groupKey] ?? null;
+            $section = $row['section'] ?? $createdSections[$row['plan']->groupKey()] ?? null;
             if (null !== $section) {
                 $ticket->setPosition($section->getNextTicketPosition());
                 $section->addTicket($ticket);
@@ -199,8 +203,37 @@ class ReleaseRefreshService
             ++$added;
         }
 
+        $reclassified = 0;
+        $removedSections = 0;
+        if ($reclassify) {
+            $sources = [];
+            foreach ($plan->regroupings as $row) {
+                $target = $row['target'] ?? $createdSections[$row['plan']->groupKey()] ?? null;
+                if (!$row['automatic'] || null === $target) {
+                    continue;
+                }
+                $ticket = $row['ticket'];
+                if (null !== $row['from']) {
+                    $row['from']->removeTicket($ticket);
+                    $sources[spl_object_id($row['from'])] = $row['from'];
+                }
+                $ticket->setPosition($target->getNextTicketPosition());
+                $target->addTicket($ticket);
+                ++$reclassified;
+            }
+            // Section automatique vidée, sans texte rédigé : elle n'a plus de raison d'être.
+            foreach ($sources as $section) {
+                if ($section->getTickets()->isEmpty() && SectionSourceType::Manual !== $section->getSourceType() && !$section->hasEditorialContent()) {
+                    $release->removeSection($section);
+                    ++$removedSections;
+                }
+            }
+        }
+
         $summary = $plan->summary();
         $summary['added'] = $added;
+        $summary['regroupings'] = $reclassified;
+        $summary['sections_removed'] = $removedSections;
         $summary['sections_created'] = \count($createdSections);
         $summary['detached'] = $detachRemoved ? \count($plan->removedFromVersion) + \count($plan->inaccessible) : 0;
         $summary['type'] = 'refresh';
@@ -211,8 +244,10 @@ class ReleaseRefreshService
         return $summary;
     }
 
-    private function classifyExisting(SyncPlan $plan, JiraTicket $ticket, JiraIssue $issue, ?EpicReference $epic): void
+    private function classifyExisting(SyncPlan $plan, Release $release, IssueTypeRuleSet $rules, JiraTicket $ticket, JiraIssue $issue, ?EpicReference $epic): void
     {
+        $this->detectRegrouping($plan, $release, $rules, $ticket, $issue, $epic);
+
         // Simulation sur une copie : le ticket réel n'est pas modifié pendant le calcul du plan.
         $copy = clone $ticket;
         $changes = $this->ticketMapper->apply($copy, $issue, $epic);
@@ -227,14 +262,41 @@ class ReleaseRefreshService
         }
     }
 
+    /**
+     * Compare le regroupement d'avant (données du ticket) à celui d'après (données Jira).
+     * Le ticket n'est déplaçable que s'il se trouve encore dans la section du regroupement automatique.
+     */
+    private function detectRegrouping(SyncPlan $plan, Release $release, IssueTypeRuleSet $rules, JiraTicket $ticket, JiraIssue $issue, ?EpicReference $epic): void
+    {
+        $from = $ticket->getSection();
+        if (null === $from || $ticket->isExcluded()) {
+            return;
+        }
+        $target = $this->sectionBuilder->planFor($issue, $epic, $rules);
+        if ($target->matches($from)) {
+            return;
+        }
+        $before = $this->sectionBuilder->planForTicket($ticket, $rules);
+        if ($before->groupKey() === $target->groupKey()) {
+            // Regroupement inchangé dans Jira : le ticket est là où l'utilisateur l'a mis.
+            return;
+        }
+        $automatic = $before->matches($from)
+            // Section d'étiquette créée avant une modification de la table de conversion (ex. étiquette ignorée depuis).
+            || (SectionSourceType::Label === $from->getSourceType()
+                && \in_array(mb_strtolower((string) $from->getSourceKey()), array_map(mb_strtolower(...), $ticket->getLabels()), true));
+
+        $section = $this->findSection($release, $target);
+        if ($automatic && null === $section) {
+            $plan->newSections[$target->groupKey()] ??= $target;
+        }
+        $plan->regroupings[] = ['ticket' => $ticket, 'from' => $from, 'plan' => $target, 'target' => $section, 'automatic' => $automatic];
+    }
+
     private function findSection(Release $release, SectionPlan $plan): ?ReleaseSection
     {
         foreach ($release->getSections() as $section) {
-            if ($section->getSourceType() !== $plan->sourceType) {
-                continue;
-            }
-            $key = $section->getSourceKey();
-            if (null !== $key && 0 === strcasecmp($key, $plan->sourceKey)) {
+            if ($plan->matches($section)) {
                 return $section;
             }
         }
