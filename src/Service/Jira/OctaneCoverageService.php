@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Service\Jira;
 
+use App\Entity\ExternalConnection;
 use App\Entity\Project;
 use App\Service\Http\AtlassianApiClient;
 use App\Service\Http\ExternalApiException;
@@ -38,24 +39,97 @@ class OctaneCoverageService
      */
     public function getCoverage(Project $project, JiraIssue $issue): array
     {
-        $connection = $project->getJiraConnection();
-        if (null === $connection) {
-            throw ExternalApiException::configuration('Le projet n\'a pas de connexion Jira.');
-        }
         $workspace = $this->workspace($project, $issue->issueType);
         if (null === $workspace) {
-            return ['status' => 'noValidConfiguration', 'entity' => null, 'totalTests' => 0, 'executedTests' => 0, 'groups' => []];
+            return self::noConfiguration();
         }
 
-        $data = $this->client->get($connection, self::BASE, [
+        return self::normalize($this->client->get($this->connection($project), self::BASE, $this->query($project, $issue, $workspace)));
+    }
+
+    /**
+     * Couverture de plusieurs fiches. La première est interrogée seule : si l'extension est absente ou
+     * l'accès refusé, on s'arrête là ; sinon les suivantes partent en parallèle.
+     *
+     * @param array<array-key, JiraIssue> $issues
+     *
+     * @return array<array-key, array<string, mixed>|ExternalApiException|null> couverture, erreur, ou null si non interrogée
+     */
+    public function getCoverages(Project $project, array $issues, int $concurrency = 6): array
+    {
+        $connection = $this->connection($project);
+        $results = array_fill_keys(array_keys($issues), null);
+        $requests = [];
+        foreach ($issues as $i => $issue) {
+            try {
+                $workspace = $this->workspace($project, $issue->issueType);
+            } catch (ExternalApiException $e) {
+                $results[$i] = $e;
+                if (self::isBlocking($e)) {
+                    return $results;
+                }
+                continue;
+            }
+            if (null === $workspace) {
+                $results[$i] = self::noConfiguration();
+                continue;
+            }
+            $requests[$i] = [self::BASE, $this->query($project, $issue, $workspace)];
+        }
+        if ([] === $requests) {
+            return $results;
+        }
+
+        $firstKey = array_key_first($requests);
+        $first = $this->client->getMany($connection, [$firstKey => $requests[$firstKey]])[$firstKey];
+        unset($requests[$firstKey]);
+        $results[$firstKey] = $first instanceof ExternalApiException ? $first : self::normalize($first);
+        if ($first instanceof ExternalApiException && self::isBlocking($first)) {
+            return $results;
+        }
+        foreach ($this->client->getMany($connection, $requests, $concurrency) as $i => $data) {
+            $results[$i] = $data instanceof ExternalApiException ? $data : self::normalize($data);
+        }
+
+        return $results;
+    }
+
+    /** Extension absente ou accès refusé : inutile d'interroger les fiches suivantes. */
+    public static function isBlocking(ExternalApiException $e): bool
+    {
+        return $e->isNotFound() || ExternalApiException::AUTHENTICATION === $e->getCategory();
+    }
+
+    /** @return array<string, mixed> */
+    private static function noConfiguration(): array
+    {
+        return ['status' => 'noValidConfiguration', 'entity' => null, 'totalTests' => 0, 'executedTests' => 0, 'groups' => []];
+    }
+
+    /**
+     * @param array{0: string, 1: string} $workspace
+     *
+     * @return array<string, string>
+     */
+    private function query(Project $project, JiraIssue $issue, array $workspace): array
+    {
+        return [
             'project-key' => $project->getJiraProjectKey(),
             'issue-key' => $issue->key,
             'issue-id' => $issue->id,
             'workspace-config-id' => $workspace[0],
             'workspace-id' => $workspace[1],
-        ]);
+        ];
+    }
 
-        return self::normalize($data);
+    private function connection(Project $project): ExternalConnection
+    {
+        $connection = $project->getJiraConnection();
+        if (null === $connection) {
+            throw ExternalApiException::configuration('Le projet n\'a pas de connexion Jira.');
+        }
+
+        return $connection;
     }
 
     /**

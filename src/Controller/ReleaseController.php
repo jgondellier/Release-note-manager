@@ -94,7 +94,7 @@ final class ReleaseController extends AbstractAppController
         if ($request->isMethod('POST')) {
             $this->assertCsrf($request, 'release-import-' . $project->getId() . '-' . $versionId);
             try {
-                $release = $importService->import($project, $versionId, $request->getPayload()->getString('title'));
+                $release = $importService->import($project, $versionId, $request->getPayload()->getString('title'), true);
                 $this->addFlash('success', sprintf('Release note créée en brouillon : %d ticket(s) importé(s) dans %d section(s).', $release->getTickets()->count(), $release->getSections()->count()));
 
                 return $this->redirectToRoute('release_show', ['id' => $release->getId()]);
@@ -112,7 +112,7 @@ final class ReleaseController extends AbstractAppController
         $preview = null;
         $error = null;
         try {
-            $preview = $importService->preview($project, $versionId);
+            $preview = $importService->preview($project, $versionId, true);
         } catch (ExternalApiException $e) {
             $error = $e->getMessage();
         }
@@ -188,7 +188,7 @@ final class ReleaseController extends AbstractAppController
         $plan = null;
         $error = null;
         try {
-            $plan = $refreshService->plan($release);
+            $plan = $refreshService->plan($release, true);
         } catch (ExternalApiException $e) {
             $error = $e->getMessage();
             $release->recordSyncError($e->getMessage());
@@ -211,6 +211,7 @@ final class ReleaseController extends AbstractAppController
                 $request->getPayload()->getBoolean('create_sections'),
                 $request->getPayload()->getBoolean('detach_removed'),
                 $request->getPayload()->getBoolean('reclassify'),
+                true,
             );
             $this->addFlash('success', sprintf(
                 'Actualisation terminée : %d ajouté(s), %d actualisé(s), %d inchangé(s), %d reclassé(s), %d retiré(s) de la version, %d inaccessible(s), %d section(s) créée(s), %d section(s) vide(s) supprimée(s). Le wording n\'a pas été modifié.',

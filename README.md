@@ -421,6 +421,21 @@ méthode, chemin, statut HTTP, durée — **jamais** d'en-têtes ni de secrets).
 Autres commandes utiles : `php bin/console debug:router`, `php bin/console doctrine:migrations:status`,
 `php bin/console about`.
 
+### Appels Jira
+
+Chaque appel est tracé (méthode, chemin, statut, durée) dans le journal d'intégration (`var/log`).
+Volume pour une version de *N* tickets :
+
+| Action | Appels |
+|---|---|
+| Aperçu d'import ou d'actualisation | 1 (versions) + ⌈N/100⌉ (recherche) + 1 par lot de 50 Epics dont le titre manque |
+| Confirmation de l'import / de l'actualisation | **0** si l'aperçu a moins de 15 min (données affichées réutilisées), sinon comme l'aperçu |
+| Actualisation du PV de recette | versions + recherche (**commentaires inclus**) + 1 par lot de 50 anomalies liées ; un appel de commentaires seulement pour un ticket dont Jira tronque les commentaires |
+| Couverture Octane | 1 par fiche (API de l'extension), la 1re seule puis **6 en parallèle** ; arrêt immédiat si l'extension est absente |
+
+La réutilisation entre aperçu et confirmation garantit aussi que ce qui est appliqué est exactement ce qui a été
+affiché. Elle utilise le pool de cache `cache.jira_snapshot` (fichiers sous `var/cache`, 15 min, usage unique).
+
 ## 19. Proxy d'entreprise
 
 ```dotenv

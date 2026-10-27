@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Service\Jira;
 
 use App\Entity\ExternalConnection;
+use App\Service\Jira\Dto\JiraComment;
 use App\Service\Jira\Dto\JiraIssue;
 
 /**
@@ -85,7 +86,27 @@ final class JiraIssueNormalizer
                 'updated' => $f['updated'] ?? null,
             ],
             linkedIssues: $this->links($f['issuelinks'] ?? []),
+            comments: $this->comments($f['comment'] ?? null),
         );
+    }
+
+    /**
+     * Commentaires renvoyés avec la recherche (champ « comment »). Null si absents ou tronqués par Jira :
+     * l'appelant les relit alors ticket par ticket.
+     *
+     * @return list<JiraComment>|null
+     */
+    private function comments(mixed $field): ?array
+    {
+        if (!\is_array($field) || !\is_array($field['comments'] ?? null)) {
+            return null;
+        }
+        $raws = array_values(array_filter($field['comments'], 'is_array'));
+        if ((int) ($field['total'] ?? \count($raws)) > \count($raws)) {
+            return null;
+        }
+
+        return array_map(fn (array $raw) => JiraComment::fromApi($raw, $this->adf), $raws);
     }
 
     /**

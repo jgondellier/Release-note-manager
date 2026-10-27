@@ -27,6 +27,9 @@ abstract class WebTestCaseBase extends WebTestCase
         $tool->dropSchema($metadata);
         $tool->createSchema($metadata);
 
+        // Données Jira mémorisées entre aperçu et confirmation : jamais partagées entre deux tests.
+        static::getContainer()->get('cache.jira_snapshot')->clear();
+
         $this->server = new FakeAtlassianServer();
         /** @var MockHttpClient $http */
         $http = static::getContainer()->get('test.mock_http_client');

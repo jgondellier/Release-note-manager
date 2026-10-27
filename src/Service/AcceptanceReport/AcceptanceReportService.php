@@ -107,7 +107,8 @@ class AcceptanceReportService
                 throw ExternalApiException::configuration('Le projet n\'a pas de connexion Jira.');
             }
             $version = $this->versionService->getVersion($project, $release->getJiraVersionId());
-            $issues = $this->issueService->findByFixVersion($project, $version);
+            // Commentaires lus avec la recherche : pas d'appel par ticket (sauf commentaires tronqués par Jira).
+            $issues = $this->issueService->findByFixVersion($project, $version, true);
             $rules = $this->mappingResolver->forProject($project);
 
             $scope = [];
@@ -128,7 +129,7 @@ class AcceptanceReportService
 
             $tests = [];
             foreach ($scope as $issue) {
-                $comments = JiraCommentService::filterByPrefix($this->commentService->getComments($connection, $issue->key), $report->getTestCommentPrefix());
+                $comments = JiraCommentService::filterByPrefix($issue->comments ?? $this->commentService->getComments($connection, $issue->key), $report->getTestCommentPrefix());
                 if ([] === $comments) {
                     continue;
                 }
@@ -244,18 +245,19 @@ class AcceptanceReportService
             return [$items, null, null];
         }
         $error = null;
-        foreach ($scope as $i => $issue) {
-            try {
-                $items[$i]['coverage'] = $this->coverageService->getCoverage($project, $issue);
-            } catch (ExternalApiException $e) {
-                $items[$i]['coverage'] = null;
-                $error ??= $e->isNotFound()
+        try {
+            $coverages = $this->coverageService->getCoverages($project, $scope);
+        } catch (ExternalApiException $e) {
+            $coverages = [array_key_first($scope) => $e];
+        }
+        foreach ($coverages as $i => $coverage) {
+            if ($coverage instanceof ExternalApiException) {
+                $error ??= $coverage->isNotFound()
                     ? 'Extension Jira de couverture Octane introuvable (API /rest/octane-coverage absente).'
-                    : $e->getMessage();
-                if ($e->isNotFound() || ExternalApiException::AUTHENTICATION === $e->getCategory()) {
-                    break; // inutile d'insister pour les fiches suivantes
-                }
+                    : $coverage->getMessage();
+                $coverage = null;
             }
+            $items[$i]['coverage'] = $coverage;
         }
 
         return [$items, OctaneCoverageService::aggregate(array_values(array_filter(array_column($items, 'coverage')))), $error];

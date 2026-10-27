@@ -57,11 +57,13 @@ final class ReleaseEditorTest extends WebTestCaseBase
         // 3. Aperçu puis import.
         $crawler = $this->client->click($crawler->selectLink('Sélectionner')->link());
         self::assertSelectorTextContains('body', 'Regroupement proposé');
+        $searchesAfterPreview = \count($this->server->requestsMatching('POST', '/rest/api/3/search/jql'));
         self::assertSelectorTextContains('body', 'fixVersion = 10042');
         $this->client->submit($crawler->selectButton('Importer et créer le brouillon')->form(['title' => 'Ma release 2.4']));
         self::assertResponseRedirects();
         $crawler = $this->client->followRedirect();
         self::assertSelectorTextContains('h1', 'Ma release 2.4');
+        self::assertCount($searchesAfterPreview, $this->server->requestsMatching('POST', '/rest/api/3/search/jql'), 'Import confirmé sans relire Jira');
 
         $release = $this->em->getRepository(Release::class)->findOneBy([]);
         $epic = $release->getSections()->first();
@@ -137,7 +139,9 @@ final class ReleaseEditorTest extends WebTestCaseBase
         self::assertSelectorTextContains('.card-alert', 'tickets à reclasser (1)');
         self::assertSelectorTextContains('.card-alert', '« ancien-lot » → « nouveau-lot »');
 
+        $requestsAfterPreview = \count($this->server->requests);
         $this->client->submit($crawler->selectButton('Appliquer l\'actualisation')->form());
+        self::assertCount($requestsAfterPreview, $this->server->requests, 'Actualisation confirmée avec les données affichées, sans relire Jira');
         self::assertResponseRedirects();
         $this->client->followRedirect();
         self::assertSelectorTextContains('body', '1 reclassé(s)');

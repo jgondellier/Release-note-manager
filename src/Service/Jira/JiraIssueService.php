@@ -33,14 +33,15 @@ class JiraIssueService
 
     /**
      * Tickets du projet portant la Fix Version sélectionnée, et uniquement ceux-là.
+     * $withComments : commentaires lus dans la même requête (évite un appel par ticket).
      *
      * @return list<JiraIssue>
      */
-    public function findByFixVersion(Project $project, JiraVersion $version): array
+    public function findByFixVersion(Project $project, JiraVersion $version, bool $withComments = false): array
     {
         $connection = $this->connection($project);
         $jql = JiraJqlBuilder::forFixVersion($project->getJiraProjectKey(), $version->id);
-        $issues = $this->search($connection, $jql);
+        $issues = $this->search($connection, $jql, $withComments ? ['comment'] : []);
 
         // Contrôle défensif : on écarte tout ticket qui ne porte pas la version demandée.
         $filtered = array_values(array_filter($issues, static fn (JiraIssue $i) => $i->hasFixVersion($version->id)));
@@ -114,19 +115,26 @@ class JiraIssueService
     /**
      * Recherche JQL paginée.
      *
+     * @param list<string> $extraFields champs demandés en plus des champs standard (ex. comment)
+     *
      * @return list<JiraIssue>
      */
-    public function search(ExternalConnection $connection, string $jql): array
+    public function search(ExternalConnection $connection, string $jql, array $extraFields = []): array
     {
         JiraApi::assertJira($connection);
+        $fields = array_values(array_unique([...JiraIssueNormalizer::fields($connection), ...$extraFields]));
 
         return $connection->isCloud()
-            ? $this->searchCloud($connection, $jql)
-            : $this->searchServer($connection, $jql);
+            ? $this->searchCloud($connection, $jql, $fields)
+            : $this->searchServer($connection, $jql, $fields);
     }
 
-    /** @return list<JiraIssue> */
-    private function searchCloud(ExternalConnection $connection, string $jql): array
+    /**
+     * @param list<string> $fields
+     *
+     * @return list<JiraIssue>
+     */
+    private function searchCloud(ExternalConnection $connection, string $jql, array $fields): array
     {
         $issues = [];
         $token = null;
@@ -134,7 +142,7 @@ class JiraIssueService
         do {
             $body = [
                 'jql' => $jql,
-                'fields' => JiraIssueNormalizer::fields($connection),
+                'fields' => $fields,
                 'maxResults' => self::PAGE_SIZE,
             ];
             if (null !== $token) {
@@ -152,8 +160,12 @@ class JiraIssueService
         return $issues;
     }
 
-    /** @return list<JiraIssue> */
-    private function searchServer(ExternalConnection $connection, string $jql): array
+    /**
+     * @param list<string> $fields
+     *
+     * @return list<JiraIssue>
+     */
+    private function searchServer(ExternalConnection $connection, string $jql, array $fields): array
     {
         $issues = [];
         $startAt = 0;
@@ -163,7 +175,7 @@ class JiraIssueService
             // (le corps POST et l'option validateQuery varient selon les versions).
             $data = $this->client->get($connection, '/rest/api/2/search', [
                 'jql' => $jql,
-                'fields' => implode(',', JiraIssueNormalizer::fields($connection)),
+                'fields' => implode(',', $fields),
                 'startAt' => $startAt,
                 'maxResults' => self::PAGE_SIZE,
             ]);

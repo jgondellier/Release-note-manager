@@ -13,6 +13,7 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface as HttpClientException;
 use Symfony\Contracts\HttpClient\Exception\TimeoutExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Symfony\Contracts\HttpClient\ResponseInterface;
 
 /**
  * Client HTTP JSON pour les API REST Jira et Confluence (Cloud et Server/DC).
@@ -72,6 +73,53 @@ class AtlassianApiClient
      */
     public function request(ExternalConnection $connection, string $method, string $path, array $options = []): array
     {
+        [$response, $secret, $started] = $this->send($connection, $method, $path, $options);
+
+        return $this->read($connection, $method, $path, $response, $secret, $started);
+    }
+
+    /**
+     * GET en parallèle (même connexion) : les requêtes d'un lot partent ensemble, ce qui divise le temps
+     * d'attente sans changer le nombre d'appels. Une erreur n'interrompt pas les autres requêtes.
+     *
+     * @param array<array-key, array{0: string, 1: array<string, scalar|null>}> $requests [chemin, paramètres] par clé
+     *
+     * @return array<array-key, array<mixed>|ExternalApiException> résultat (ou erreur) par clé, dans l'ordre demandé
+     */
+    public function getMany(ExternalConnection $connection, array $requests, int $concurrency = 6): array
+    {
+        $results = [];
+        foreach (array_chunk($requests, max(1, $concurrency), true) as $chunk) {
+            $pending = [];
+            foreach ($chunk as $key => [$path, $query]) {
+                try {
+                    $pending[$key] = [$path, ...$this->send($connection, 'GET', $path, ['query' => array_filter($query, static fn ($v) => null !== $v)])];
+                } catch (ExternalApiException $e) {
+                    $results[$key] = $e;
+                }
+            }
+            foreach ($pending as $key => [$path, $response, $secret, $started]) {
+                try {
+                    $results[$key] = $this->read($connection, 'GET', $path, $response, $secret, $started);
+                } catch (ExternalApiException $e) {
+                    $results[$key] = $e;
+                }
+            }
+        }
+
+        // Ordre d'origine conservé.
+        return array_replace(array_intersect_key($requests, $results), $results);
+    }
+
+    /**
+     * Prépare et envoie la requête (non bloquant : la réponse est lue par read()).
+     *
+     * @param array<string, mixed> $options
+     *
+     * @return array{0: ResponseInterface, 1: string, 2: float}
+     */
+    private function send(ExternalConnection $connection, string $method, string $path, array $options): array
+    {
         if (!$connection->isActive()) {
             throw ExternalApiException::configuration(sprintf('La connexion « %s » est désactivée.', $connection->getName()));
         }
@@ -95,22 +143,22 @@ class AtlassianApiClient
 
         $started = microtime(true);
         try {
-            $response = $this->httpClient->request($method, $url, $options);
+            return [$this->httpClient->request($method, $url, $options), $secret, $started];
+        } catch (HttpClientException $e) {
+            throw $this->transportError($connection, $method, $path, $e, $secret, $started);
+        }
+    }
+
+    /** @return array<mixed> */
+    private function read(ExternalConnection $connection, string $method, string $path, ResponseInterface $response, string $secret, float $started): array
+    {
+        try {
             $status = $response->getStatusCode();
             $headers = $response->getHeaders(false);
             $content = $response->getContent(false);
-        } catch (TimeoutExceptionInterface $e) {
-            $this->log('warning', $connection, $method, $path, null, $started, 'timeout');
-            throw new ExternalApiException(sprintf('Délai dépassé lors de l\'appel à « %s ». Vérifiez le réseau, le proxy ou augmentez APP_HTTP_TIMEOUT.', $connection->getName()), ExternalApiException::TIMEOUT, null, $e);
         } catch (HttpClientException $e) {
-            $isTimeout = str_contains(strtolower($e->getMessage()), 'timeout') || str_contains(strtolower($e->getMessage()), 'timed out');
-            $this->log('warning', $connection, $method, $path, null, $started, $isTimeout ? 'timeout' : 'transport');
-            if ($isTimeout) {
-                throw new ExternalApiException(sprintf('Délai dépassé lors de l\'appel à « %s ».', $connection->getName()), ExternalApiException::TIMEOUT, null, $e);
-            }
-            throw new ExternalApiException(sprintf('Serveur « %s » injoignable (%s). Vérifiez l\'URL, le DNS, le proxy d\'entreprise et les certificats.', $connection->getName(), $this->sanitize($this->shortTransportReason($e->getMessage()), $secret)), ExternalApiException::UNREACHABLE, null, $e);
+            throw $this->transportError($connection, $method, $path, $e, $secret, $started);
         }
-
         $this->log($status >= 400 ? 'warning' : 'info', $connection, $method, $path, $status, $started);
 
         $loginReason = strtoupper(implode(',', $headers['x-seraph-loginreason'] ?? []));
@@ -141,6 +189,22 @@ class AtlassianApiClient
         }
 
         return $data;
+    }
+
+    private function transportError(ExternalConnection $connection, string $method, string $path, HttpClientException $e, string $secret, float $started): ExternalApiException
+    {
+        if ($e instanceof TimeoutExceptionInterface) {
+            $this->log('warning', $connection, $method, $path, null, $started, 'timeout');
+
+            return new ExternalApiException(sprintf('Délai dépassé lors de l\'appel à « %s ». Vérifiez le réseau, le proxy ou augmentez APP_HTTP_TIMEOUT.', $connection->getName()), ExternalApiException::TIMEOUT, null, $e);
+        }
+        $isTimeout = str_contains(strtolower($e->getMessage()), 'timeout') || str_contains(strtolower($e->getMessage()), 'timed out');
+        $this->log('warning', $connection, $method, $path, null, $started, $isTimeout ? 'timeout' : 'transport');
+        if ($isTimeout) {
+            return new ExternalApiException(sprintf('Délai dépassé lors de l\'appel à « %s ».', $connection->getName()), ExternalApiException::TIMEOUT, null, $e);
+        }
+
+        return new ExternalApiException(sprintf('Serveur « %s » injoignable (%s). Vérifiez l\'URL, le DNS, le proxy d\'entreprise et les certificats.', $connection->getName(), $this->sanitize($this->shortTransportReason($e->getMessage()), $secret)), ExternalApiException::UNREACHABLE, null, $e);
     }
 
     private function decryptSecret(ExternalConnection $connection): string

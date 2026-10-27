@@ -14,6 +14,7 @@ use App\Service\Http\ExternalApiException;
 use App\Service\Jira\Dto\JiraVersion;
 use App\Service\Jira\JiraEpicResolver;
 use App\Service\Jira\JiraIssueService;
+use App\Service\Jira\JiraSnapshotStore;
 use App\Service\Jira\JiraVersionService;
 use App\Service\ReleaseNote\Dto\ImportPreview;
 use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
@@ -35,31 +36,47 @@ class ReleaseImportService
         private readonly JiraTicketMapper $ticketMapper,
         private readonly ReleaseRepository $releaseRepository,
         private readonly EntityManagerInterface $em,
+        private readonly JiraSnapshotStore $snapshots,
     ) {
     }
 
-    /** Lecture Jira sans écriture : version, tickets et sections proposées. */
-    public function preview(Project $project, string $versionId): ImportPreview
+    /**
+     * Lecture Jira sans écriture : version, tickets et sections proposées.
+     *
+     * @param bool $remember mémorise les données lues pour que l'import confirmé ne relise pas Jira
+     */
+    public function preview(Project $project, string $versionId, bool $remember = false): ImportPreview
     {
         $this->assertImportable($project);
-        $version = $this->versionService->getVersion($project, $versionId);
+        $preview = $this->buildPreview($project, $this->versionService->getVersion($project, $versionId));
+        if ($remember) {
+            $this->snapshots->save(self::snapshotKey($project, $versionId), [$preview->version, $preview->issues, $preview->epics]);
+        }
 
-        return $this->buildPreview($project, $version);
+        return $preview;
     }
 
     /**
+     * @param bool $reuseRemembered réutilise les données de l'aperçu affiché (si encore disponibles)
+     *
      * @throws ReleaseAlreadyExistsException
      * @throws ExternalApiException
      */
-    public function import(Project $project, string $versionId, ?string $title = null): Release
+    public function import(Project $project, string $versionId, ?string $title = null, bool $reuseRemembered = false): Release
     {
         $this->assertImportable($project);
         if (null !== $existing = $this->releaseRepository->findOneByProjectAndVersion($project, $versionId)) {
             throw new ReleaseAlreadyExistsException($existing);
         }
 
-        $version = $this->versionService->getVersion($project, $versionId);
-        $preview = $this->buildPreview($project, $version);
+        $snapshot = $reuseRemembered ? $this->snapshots->take(self::snapshotKey($project, $versionId)) : null;
+        if (\is_array($snapshot) && 3 === \count($snapshot)) {
+            [$version, $issues, $epics] = $snapshot;
+            $preview = new ImportPreview($version, $issues, $epics, $this->sectionBuilder->build($issues, $epics, $this->mappingResolver->forProject($project)));
+        } else {
+            $version = $this->versionService->getVersion($project, $versionId);
+            $preview = $this->buildPreview($project, $version);
+        }
 
         $release = (new Release())
             ->setProject($project)
@@ -147,6 +164,11 @@ class ReleaseImportService
         $plans = $this->sectionBuilder->build($issues, $epics, $this->mappingResolver->forProject($project));
 
         return new ImportPreview($version, $issues, $epics, $plans);
+    }
+
+    private static function snapshotKey(Project $project, string $versionId): string
+    {
+        return sprintf('import|%d|%d|%s|%s', $project->getId(), $project->getJiraConnection()?->getId(), $project->getJiraProjectKey(), $versionId);
     }
 
     private function assertImportable(Project $project): void

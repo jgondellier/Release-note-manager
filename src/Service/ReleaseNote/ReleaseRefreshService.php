@@ -14,6 +14,7 @@ use App\Service\Jira\Dto\EpicReference;
 use App\Service\Jira\Dto\JiraIssue;
 use App\Service\Jira\JiraEpicResolver;
 use App\Service\Jira\JiraIssueService;
+use App\Service\Jira\JiraSnapshotStore;
 use App\Service\Jira\JiraVersionService;
 use App\Service\ReleaseNote\Dto\IssueTypeRuleSet;
 use App\Service\ReleaseNote\Dto\SectionPlan;
@@ -43,11 +44,21 @@ class ReleaseRefreshService
         private readonly SectionBuilder $sectionBuilder,
         private readonly JiraTicketMapper $ticketMapper,
         private readonly EntityManagerInterface $em,
+        private readonly JiraSnapshotStore $snapshots,
     ) {
     }
 
-    /** Calcule les changements sans rien modifier. */
-    public function plan(Release $release): SyncPlan
+    /**
+     * Calcule les changements sans rien modifier.
+     *
+     * @param bool $remember mémorise les données Jira lues pour que la confirmation ne relise pas Jira
+     */
+    public function plan(Release $release, bool $remember = false): SyncPlan
+    {
+        return $this->computePlan($release, $remember, false);
+    }
+
+    private function computePlan(Release $release, bool $remember, bool $reuseRemembered): SyncPlan
     {
         $project = $release->getProject();
         $connection = $project?->getJiraConnection();
@@ -55,9 +66,18 @@ class ReleaseRefreshService
             throw ExternalApiException::configuration('Le projet de cette release n\'a plus de connexion Jira.');
         }
 
-        $version = $this->versionService->getVersion($project, $release->getJiraVersionId());
-        $issues = $this->issueService->findByFixVersion($project, $version);
-        $epics = $this->epicResolver->resolve($connection, $issues);
+        $snapshotKey = sprintf('refresh|%d|%d|%s|%s', $release->getId(), $connection->getId(), $project->getJiraProjectKey(), $release->getJiraVersionId());
+        $snapshot = $reuseRemembered ? $this->snapshots->take($snapshotKey) : null;
+        if (\is_array($snapshot) && 3 === \count($snapshot)) {
+            [$version, $issues, $epics] = $snapshot;
+        } else {
+            $version = $this->versionService->getVersion($project, $release->getJiraVersionId());
+            $issues = $this->issueService->findByFixVersion($project, $version);
+            $epics = $this->epicResolver->resolve($connection, $issues);
+        }
+        if ($remember) {
+            $this->snapshots->save($snapshotKey, [$version, $issues, $epics]);
+        }
         $rules = $this->mappingResolver->forProject($project);
 
         $plan = new SyncPlan($version);
@@ -126,13 +146,14 @@ class ReleaseRefreshService
      * @param bool $createSections crée les sections proposées pour les nouveaux Epics/types (sinon : tickets « non classés »)
      * @param bool $detachRemoved  détache de leur section les tickets retirés/inaccessibles (action éditoriale explicite)
      * @param bool $reclassify     déplace les tickets dont l'Epic ou l'étiquette a changé (s'ils n'ont pas été classés à la main)
+     * @param bool $reuseRemembered applique les données Jira de l'aperçu affiché (si encore disponibles) sans relire Jira
      *
      * @return array<string, int|string>
      */
-    public function apply(Release $release, bool $createSections = true, bool $detachRemoved = false, bool $reclassify = true): array
+    public function apply(Release $release, bool $createSections = true, bool $detachRemoved = false, bool $reclassify = true, bool $reuseRemembered = false): array
     {
         try {
-            $plan = $this->plan($release);
+            $plan = $this->computePlan($release, false, $reuseRemembered);
         } catch (ExternalApiException $e) {
             $release->recordSyncError($e->getMessage());
             $this->em->flush();

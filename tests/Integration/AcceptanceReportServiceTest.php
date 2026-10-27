@@ -317,4 +317,49 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         self::assertStringContainsString('indisponible', (string) $report->getJiraSyncError());
         self::assertSame('Texte saisi', $report->getComments());
     }
+
+    public function testCommentsAreReadWithTheSearchInsteadOfOneCallPerTicket(): void
+    {
+        $release = $this->prepare();
+        $this->server->requests = [];
+        // Jira renvoie les commentaires dans la recherche ; CCS-3 en a trop (tronqués) → relecture unitaire.
+        $this->issues[1]['fields']['comment'] = ['total' => 1, 'maxResults' => 1, 'comments' => [
+            ['id' => '1', 'author' => ['displayName' => 'Awa N.'], 'created' => '2026-09-10T10:00:00.000+0200', 'body' => $this->adf('TEST : création OK')],
+        ]];
+        $this->issues[2]['fields']['comment'] = ['total' => 120, 'maxResults' => 1, 'comments' => [['id' => '9', 'body' => $this->adf('…')]]];
+        $this->issues[5]['fields']['comment'] = ['total' => 0, 'maxResults' => 0, 'comments' => []];
+
+        $service = $this->service(AcceptanceReportService::class);
+        $report = $service->create($release);
+        $service->refreshFromJira($report);
+
+        self::assertContains('comment', $this->server->requestsMatching('POST', '/rest/api/3/search/jql')[0]['json']['fields']);
+        $commentCalls = $this->server->requestsMatching('GET', '/comment');
+        self::assertCount(1, $commentCalls, 'Seul le ticket aux commentaires tronqués est relu');
+        self::assertStringContainsString('/issue/CCS-3/comment', $commentCalls[0]['url']);
+        self::assertSame(['CCS-2'], array_column($report->getTestItems(), 'key'));
+        self::assertSame(['création OK'], array_column($report->getTestItems()[0]['comments'], 'text'));
+    }
+
+    public function testOctaneErrorOnOneTicketDoesNotPreventOthers(): void
+    {
+        $release = $this->prepare();
+        $release->getProject()->setOctaneCoverageEnabled(true)->setOctaneWorkspaceConfigId('cfg')->setOctaneWorkspaceId('1');
+        $this->em->flush();
+        $this->server->on('GET', '/rest/octane-coverage/1.0/coverage', static fn (array $b, string $url, array $q) => 'CCS-3' === $q['issue-key']
+            ? FakeAtlassianServer::json(['message' => 'boom'], 500)
+            : ['issueKey' => $q['issue-key'], 'status' => 'hasData', 'octaneEntity' => ['fields' => ['id' => '1']], 'totalTestsCount' => 2, 'totalExecutedTestsCount' => 2,
+                'coverageGroups' => [['fields' => ['id' => 'run_status_passed', 'name' => 'Passed', 'count' => 2]]]]);
+
+        $service = $this->service(AcceptanceReportService::class);
+        $report = $service->create($release);
+        $service->refreshFromJira($report);
+
+        self::assertCount(3, $this->server->requestsMatching('GET', '/rest/octane-coverage/1.0/coverage?'));
+        self::assertSame(['CCS-2' => 2, 'CCS-3' => null, 'CCS-6' => 2], array_combine(
+            array_column($report->getScopeItems(), 'key'),
+            array_map(static fn ($i) => $i['coverage']['totalTests'] ?? null, $report->getScopeItems()),
+        ));
+        self::assertNotNull($report->getCoverageError());
+    }
 }

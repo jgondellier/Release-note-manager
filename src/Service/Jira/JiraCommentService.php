@@ -48,7 +48,7 @@ class JiraCommentService
                     continue;
                 }
                 ++$received;
-                $comments[] = $this->normalize($raw);
+                $comments[] = JiraComment::fromApi($raw, $this->adf);
             }
             $startAt += $received;
             $total = (int) ($data['total'] ?? 0);
@@ -90,27 +90,5 @@ class JiraCommentService
         $core = 2 === \count($parts) ? $parts[0] . '\s*:' . ('' !== $parts[1] ? '\s*' . $parts[1] : '') : $parts[0];
 
         return '/^[*_]?\s*' . $core . '[*_]?\s*/iu';
-    }
-
-    /** @param array<string, mixed> $raw */
-    private function normalize(array $raw): JiraComment
-    {
-        $body = $raw['body'] ?? '';
-        $text = \is_array($body) ? $this->adf->extract($body) : trim((string) $body);
-        $created = null;
-        if (isset($raw['created']) && \is_string($raw['created'])) {
-            try {
-                $created = new \DateTimeImmutable($raw['created']);
-            } catch (\Exception) {
-                $created = null;
-            }
-        }
-
-        return new JiraComment(
-            (string) ($raw['id'] ?? ''),
-            isset($raw['author']['displayName']) ? (string) $raw['author']['displayName'] : null,
-            $created,
-            $text,
-        );
     }
 }

@@ -3,3 +3,9 @@ framework:
         # Cache applicatif sur fichiers (compatible EasyPHP sans extension supplémentaire).
         app: cache.adapter.filesystem
         system: cache.adapter.system
+        pools:
+            # Données Jira d'un écran d'aperçu, réutilisées à la confirmation (15 min max).
+            cache.jira_snapshot:
+                adapter: cache.adapter.filesystem
+                default_lifetime: 900
+

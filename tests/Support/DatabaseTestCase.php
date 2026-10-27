@@ -35,6 +35,9 @@ abstract class DatabaseTestCase extends KernelTestCase
         $tool->dropSchema($metadata);
         $tool->createSchema($metadata);
 
+        // Données Jira mémorisées entre aperçu et confirmation : jamais partagées entre deux tests.
+        self::getContainer()->get('cache.jira_snapshot')->clear();
+
         $this->server = new FakeAtlassianServer();
         /** @var MockHttpClient $client */
         $client = self::getContainer()->get('test.mock_http_client');
