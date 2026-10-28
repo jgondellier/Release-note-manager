@@ -220,10 +220,13 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         $outcomes = $publication->publish($release, ['acceptance:cloud']);
 
         self::assertTrue($outcomes[0]->isSuccess(), $outcomes[0]->message);
-        self::assertSame([['title' => 'CCS 2.4.0 — PV de recette', 'parentId' => '321']], $created, 'Pas de page de regroupement, parent dédié');
+        self::assertSame([
+            ['title' => 'CCS — PV de recette 2026', 'parentId' => '321'],
+            ['title' => 'CCS 2.4.0 — PV de recette', 'parentId' => '9001'],
+        ], $created, 'Pas de page de regroupement : page d\'année des PV sous le parent dédié');
 
         $publication->publish($release, ['it:cloud']);
-        self::assertSame('CCS 2.4.0 — Release notes', $created[1]['title'], 'Les release notes gardent leur page de regroupement');
+        self::assertSame(['CCS — 2026', 'CCS 2.4.0 — Release notes', 'CCS 2.4.0 — Release note IT'], array_column(\array_slice($created, 2), 'title'), 'Les release notes gardent leur page d\'année et de regroupement');
     }
 
     public function testOctaneCoverageIsReadThroughTheJiraPlugin(): void

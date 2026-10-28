@@ -89,6 +89,39 @@ class ReleaseNoteRenderer
         return mb_substr(sprintf('%s %s — Release notes', $project?->getName() ?? '', $release->getJiraVersionName()), 0, 255);
     }
 
+    /** Année de MEP utilisée pour classer la page d'un format (date de MEP du PV pour le PV). */
+    public function mepYear(Release $release, PublicationFormat $format): int
+    {
+        $mep = PublicationFormat::AcceptanceReport === $format ? $release->getAcceptanceReport()?->getMepDate() : null;
+
+        return null !== $mep ? (int) $mep->format('Y') : $release->getMepYear();
+    }
+
+    /**
+     * Titre de la page d'année (unique dans l'espace Confluence) : projet + année, avec la mention
+     * « PV de recette » pour celle placée sous la page parente dédiée aux PV.
+     */
+    public function yearPageTitle(Release $release, int $year, bool $acceptanceParent): string
+    {
+        $name = $release->getProject()?->getName() ?? '';
+
+        return mb_substr($acceptanceParent ? sprintf('%s — PV de recette %d', $name, $year) : sprintf('%s — %d', $name, $year), 0, 255);
+    }
+
+    public function renderYearStorage(Release $release, int $year, bool $acceptanceParent): string
+    {
+        $xml = $this->twig->render('render/confluence/year.xml.twig', [
+            'project' => $release->getProject(),
+            'year' => $year,
+            'title' => $this->yearPageTitle($release, $year, $acceptanceParent),
+            'acceptance' => $acceptanceParent,
+        ]);
+        $xml = (string) preg_replace('/>[ \t]*\R\s*</u', '><', trim($xml));
+        $this->assertWellFormed($xml);
+
+        return $xml;
+    }
+
     /** Contenu de la page de regroupement (liste automatique des pages enfants). */
     public function renderContainerStorage(Release $release, PublicationTarget $target): string
     {

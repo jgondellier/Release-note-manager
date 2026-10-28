@@ -310,17 +310,34 @@ Syntaxe des champs de texte : ligne vide = paragraphe, `- ` = puce, `1. ` = list
 4. **Historique** : statut par cible, lien vers la page, version, nombre de tentatives, journal détaillé,
    boutons **Réessayer** (échec) / **Republier**.
 
-**Arborescence Confluence** (identique sur Cloud et Server/DC) : sur chaque instance, une page de
-regroupement par release, placée sous la page parente du projet (ou à la racine de l'espace), contient les
-trois release notes :
+**Arborescence Confluence** (identique sur Cloud et Server/DC) : sur chaque instance, les versions sont
+classées par **année de mise en production** sous la page parente du projet (ou à la racine de l'espace) ;
+une page de regroupement par release contient les release notes et le PV :
 
 ```
 Page parente du projet (facultative)
-└── CCS 2.4.0 — Release notes        ← créée automatiquement, liste ses sous-pages (macro « children »)
-    ├── CCS 2.4.0 — Release note IT
-    ├── CCS 2.4.0 — Release note fonctionnelle
-    └── CCS 2.4.0 — Nouveautés
+├── CCS — 2026                           ← page d'année, créée à la 1re publication de l'année
+│   ├── CCS 2.4.0 — Release notes        ← page de regroupement, liste ses sous-pages (macro « children »)
+│   │   ├── CCS 2.4.0 — Release note IT
+│   │   ├── CCS 2.4.0 — Release note fonctionnelle
+│   │   ├── CCS 2.4.0 — Nouveautés
+│   │   └── CCS 2.4.0 — PV de recette    (si pas de page parente dédiée aux PV)
+│   └── CCS 2.5.0 — Release notes
+└── CCS — 2027
+    └── …
+
+Page parente dédiée aux PV (facultative)
+└── CCS — PV de recette 2026
+    └── CCS 2.4.0 — PV de recette
 ```
+
+- **Année** : date de MEP de la release, à défaut date de livraison de la version Jira, à défaut date de
+  création de la release. Pour un PV sous la page parente dédiée : date de MEP du PV.
+- **Page d'année** : titre `<Projet> — <Année>` (`<Projet> — PV de recette <Année>` sous la page dédiée aux PV),
+  unique dans l'espace. Une page de ce titre déjà présente est réutilisée **telle quelle** (contenu et
+  emplacement non modifiés, vous pouvez l'enrichir) ; sinon elle est créée.
+- Les pages publiées avant ce classement, ou dont l'année de MEP change, sont **déplacées** sous la bonne page
+  d'année à leur prochaine publication (aucun doublon).
 
 La page de regroupement est mémorisée par release et par instance, et n'est republiée que si son contenu
 change. Les pages publiées avant cette organisation sont déplacées sous elle à leur prochaine republication.
@@ -375,7 +392,8 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
    Un PV définitif exige une décision ; « avec réserves » exige le texte des réserves.
 4. **Publier** : le PV apparaît comme format « PV de recette » dans l'écran de publication (Cloud et/ou
    Server). Sa page « <Projet> <Version> — PV de recette » est rangée sous la page de regroupement de la
-   version, avec les release notes, **ou** sous la **page parente dédiée aux PV** si elle est renseignée
+   version, avec les release notes, **ou** sous la page d'année « <Projet> — PV de recette <Année> » de la
+   **page parente dédiée aux PV** si elle est renseignée
    dans le projet (*Projets › Modifier*, un identifiant pour Cloud et un pour Server/DC). Changer ce réglage
    déplace la page à la prochaine republication. Republication = mise à jour de la même page. Le PV n'intervient pas
    dans le statut « Publiée » des release notes.
@@ -698,9 +716,8 @@ Correspondance avec le cahier des charges :
 
 - Les pages Confluence modifiées à la main sont **écrasées** à la republication (un avertissement figure en
   pied de page publiée).
-- Si la page parente du projet change, la page de regroupement existante n'est déplacée que lorsque son
-  contenu est republié (changement de titre, de date…) ; les pages de format, elles, restent sous la page de
-  regroupement.
+- Si la page parente du projet change, une page d'année déjà existante n'est pas déplacée (elle est retrouvée
+  par son titre) : déplacez-la à la main dans Confluence si besoin.
 - La publication est synchrone (6 cibles maximum, délais bornés par `APP_HTTP_MAX_DURATION`) ; pas de file
   d'attente asynchrone.
 - Verrous de publication sur fichiers locaux (`var/lock`) : adaptés à un seul serveur web ; en

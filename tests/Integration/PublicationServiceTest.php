@@ -118,13 +118,15 @@ final class PublicationServiceTest extends DatabaseTestCase
         $outcomes = $service->publish($release, $this->allTargets());
         self::assertCount(6, $outcomes);
         self::assertSame(array_fill(0, 6, PublicationOutcome::SUCCESS), array_map(static fn ($o) => $o->status, $outcomes));
-        self::assertSame(8, $this->pageCount(), '2 pages de regroupement + 6 pages de format');
+        self::assertSame(10, $this->pageCount(), '2 pages d\'année + 2 pages de regroupement + 6 pages de format');
         self::assertSame(ReleaseStatus::Published, $release->getStatus());
 
         foreach (['cloud' => null, 'server' => '555'] as $instance => $projectParent) {
+            $year = $this->pageByTitle($instance, 'CCS — 2026');
+            self::assertSame($projectParent, $year['parentId'], 'Page d\'année (MEP 20/10/2026) sous la page parente du projet');
             $container = $this->pageByTitle($instance, '— Release notes');
             self::assertSame('CCS 2.4.0 — Release notes', $container['title']);
-            self::assertSame($projectParent, $container['parentId'], 'Page de regroupement sous la page parente du projet');
+            self::assertSame($year['id'], $container['parentId'], 'Page de regroupement sous la page d\'année');
             foreach (['Release note IT', 'Release note fonctionnelle', 'Nouveautés'] as $title) {
                 self::assertSame($container['id'], $this->pageByTitle($instance, $title)['parentId'], $title . ' rangée sous la page de regroupement (' . $instance . ')');
             }
@@ -133,8 +135,9 @@ final class PublicationServiceTest extends DatabaseTestCase
         self::assertCount(2, $release->getContainers());
 
         $service->publish($release, $this->allTargets());
-        self::assertSame(8, $this->pageCount(), 'Republication : aucune nouvelle page');
+        self::assertSame(10, $this->pageCount(), 'Republication : aucune nouvelle page');
         foreach (['cloud', 'server'] as $instance) {
+            self::assertSame(1, $this->pageByTitle($instance, 'CCS — 2026')['version']['number'], 'Page d\'année jamais modifiée');
             self::assertSame(1, $this->pageByTitle($instance, '— Release notes')['version']['number'], 'Regroupement inchangé : pas de nouvelle version');
             self::assertSame(2, $this->pageByTitle($instance, 'Release note IT')['version']['number']);
         }
@@ -154,7 +157,8 @@ final class PublicationServiceTest extends DatabaseTestCase
         $container = $this->pageByTitle('server', '— Release notes');
         self::assertSame($container['id'], $this->stores['server']['4000']['parentId'], 'Page existante déplacée sous le regroupement');
         self::assertSame(4, $this->stores['server']['4000']['version']['number']);
-        self::assertSame(2, \count($this->stores['server']), 'Aucun doublon de la page IT');
+        self::assertSame(3, \count($this->stores['server']), 'Année + regroupement, aucun doublon de la page IT');
+        self::assertSame($this->pageByTitle('server', 'CCS — 2026')['id'], $container['parentId']);
     }
 
     public function testFailureOnOneTargetDoesNotBlockOthersAndRetryWorks(): void
@@ -191,7 +195,7 @@ final class PublicationServiceTest extends DatabaseTestCase
             }
         }
         self::assertSame(ReleaseStatus::Published, $release->getStatus());
-        self::assertSame(8, $this->pageCount());
+        self::assertSame(10, $this->pageCount());
     }
 
     public function testUnconfiguredTargetsAreSkipped(): void
@@ -204,5 +208,26 @@ final class PublicationServiceTest extends DatabaseTestCase
         $skipped = array_filter($outcomes, static fn ($o) => PublicationOutcome::SKIPPED === $o->status);
         self::assertCount(3, $skipped);
         self::assertSame(ReleaseStatus::Published, $release->getStatus(), 'Toutes les cibles configurées sont publiées');
+    }
+
+    public function testExistingYearPageIsReusedAndContainerMovesWhenMepYearChanges(): void
+    {
+        $release = $this->prepare();
+        // Page d'année déjà présente (créée à la main ou par une autre release) : réutilisée telle quelle.
+        $this->stores['cloud']['4100'] = ['id' => '4100', 'title' => 'CCS — 2026', 'version' => ['number' => 7], 'parentId' => '42'];
+        $service = $this->service(PublicationService::class);
+
+        $service->publish($release, ['it:cloud']);
+        $container = $this->pageByTitle('cloud', '— Release notes');
+        self::assertSame('4100', $container['parentId']);
+        self::assertSame(7, $this->stores['cloud']['4100']['version']['number'], 'Page d\'année existante non modifiée');
+
+        // MEP repoussée à 2027 : la page de regroupement est déplacée sous la nouvelle page d'année.
+        $release->setReleaseDate(new \DateTimeImmutable('2027-01-15'));
+        $this->em->flush();
+        $service->publish($release, ['it:cloud']);
+        $year2027 = $this->pageByTitle('cloud', 'CCS — 2027');
+        self::assertSame($year2027['id'], $this->stores['cloud'][$container['id']]['parentId']);
+        self::assertSame(1, \count($this->findByTitle('cloud', 'CCS 2.4.0 — Release notes')), 'Déplacée, pas dupliquée');
     }
 }

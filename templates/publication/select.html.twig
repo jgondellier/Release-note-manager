@@ -28,7 +28,7 @@
                     {% if row.available %}
                         <div class="small muted">{{ row.connectionName }} · espace {{ row.spaceKey }}</div>
                         <div class="small">Page : « {{ row.pageTitle }} »</div>
-                        <div class="small muted">Sous : « {{ row.containerTitle }} »</div>
+                        <div class="small muted">Sous : {% if row.useContainer %}« {{ row.containerTitle }} » › {% endif %}« {{ row.yearPageTitle }} »</div>
                         <div class="target-status">
                             {% if row.publication %}
                                 {{ ui.publication_status(row.publication.status) }}

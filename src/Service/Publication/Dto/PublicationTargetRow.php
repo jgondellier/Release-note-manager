@@ -29,6 +29,9 @@ final class PublicationTargetRow
         public readonly bool $outdated,
         /** false : page publiée directement sous parentPageId (PV avec page parente dédiée). */
         public readonly bool $useContainer = true,
+        /** Page d'année intercalée sous parentPageId (ex. « Projet — 2026 »). */
+        public readonly string $yearPageTitle = '',
+        public readonly int $year = 0,
     ) {
     }
 
@@ -45,14 +48,18 @@ final class PublicationTargetRow
     /** Emplacement de la page : sous la page de regroupement de la release. */
     public function locationLabel(): string
     {
+        $year = sprintf('« %s »', $this->yearPageTitle);
+        $root = null !== $this->parentPageId
+            ? sprintf('sous la page %s%s', $this->parentPageId, $this->useContainer ? '' : ' (parente dédiée aux PV)')
+            : 'à la racine de l\'espace';
         if (!$this->useContainer) {
-            return sprintf('sous la page parente dédiée aux PV (page %s)', $this->parentPageId);
+            return sprintf('sous %s, elle-même %s', $year, $root);
         }
         $location = null !== $this->container
             ? sprintf('sous « %s » (page n°%s)', $this->containerTitle, $this->container->getConfluencePageId())
             : sprintf('sous « %s » (créée à la première publication)', $this->containerTitle);
 
-        return $location . (null !== $this->parentPageId ? sprintf(', elle-même sous la page %s', $this->parentPageId) : ', à la racine de l\'espace');
+        return sprintf('%s, dans %s, elle-même %s', $location, $year, $root);
     }
 
     /** Résultat attendu, affiché sur l'écran de confirmation. */

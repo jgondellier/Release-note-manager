@@ -35,7 +35,9 @@ use Symfony\Component\Lock\LockFactory;
  *   une republication met à jour la même page.
  * - Chaque tentative est historisée (PublicationAttempt) sans aucun secret.
  * - Sur chaque instance, les trois pages sont rangées sous une page de regroupement
- *   de la release (PublicationContainer), elle-même placée sous la page parente du projet.
+ *   de la release (PublicationContainer), placée sous une page d'année (année de MEP),
+ *   elle-même sous la page parente du projet. Un PV avec page parente dédiée va directement
+ *   sous la page d'année de cette page dédiée.
  */
 class PublicationService
 {
@@ -51,6 +53,9 @@ class PublicationService
 
     /** @var array<string, true> pages de regroupement déjà vérifiées pendant cette exécution */
     private array $verifiedContainers = [];
+
+    /** @var array<string, string> identifiant des pages d'année résolues pendant cette exécution */
+    private array $yearPages = [];
 
     /** @return list<PublicationTargetRow> les 6 combinaisons possibles, disponibles ou non */
     public function getTargetMatrix(Release $release): array
@@ -76,6 +81,8 @@ class PublicationService
                 }
                 $publication = $release->findPublication($format, $target);
                 $dedicatedParent = PublicationFormat::AcceptanceReport === $format ? $project->getConfluenceAcceptanceParentPageId($target) : null;
+                // Une page dans la page de regroupement suit l'année de la release ; un PV hors regroupement, sa propre date de MEP.
+                $year = null === $dedicatedParent ? $release->getMepYear() : $this->renderer->mepYear($release, $format);
                 $rows[] = new PublicationTargetRow(
                     format: $format,
                     target: $target,
@@ -90,6 +97,8 @@ class PublicationService
                     publication: $publication,
                     outdated: null !== $publication && null !== $publication->getContentHash() && $this->isOutdated($release, $format, $publication),
                     useContainer: null === $dedicatedParent,
+                    yearPageTitle: $this->renderer->yearPageTitle($release, $year, null !== $dedicatedParent),
+                    year: $year,
                 );
             }
         }
@@ -165,7 +174,8 @@ class PublicationService
             $started = microtime(true);
 
             try {
-                $parentId = $row->useContainer ? $this->ensureContainer($release, $row, $connection) : $row->parentPageId;
+                $yearPageId = $this->ensureYearPage($release, $row, $connection);
+                $parentId = $row->useContainer ? $this->ensureContainer($release, $row, $connection, $yearPageId) : $yearPageId;
                 $storage = $this->renderer->renderStorage($release, $row->format);
                 $result = $this->publisher->publish(
                     $connection,
@@ -203,13 +213,15 @@ class PublicationService
      * retourne son identifiant. Elle n'est republiée que si elle a disparu ou si son
      * contenu a changé (pas de nouvelle version Confluence à chaque publication).
      */
-    private function ensureContainer(Release $release, PublicationTargetRow $row, ExternalConnection $connection): string
+    private function ensureContainer(Release $release, PublicationTargetRow $row, ExternalConnection $connection, string $parentId): string
     {
         $key = $release->getId() . ':' . $row->target->value;
         $container = $release->findContainer($row->target);
         $title = $this->renderer->containerTitle($release);
         $storage = $this->renderer->renderContainerStorage($release, $row->target);
-        $hash = $this->renderer->contentHash($title, $storage);
+        // Le parent entre dans l'empreinte : un changement de page d'année (date de MEP modifiée,
+        // ou page publiée avant le classement par année) republie la page pour la déplacer.
+        $hash = $this->renderer->contentHash($title, $storage . "\n" . 'parent:' . $parentId);
 
         if (null !== $container && isset($this->verifiedContainers[$key]) && $container->getContentHash() === $hash) {
             return $container->getConfluencePageId();
@@ -228,7 +240,7 @@ class PublicationService
             $result = $this->publisher->publish(
                 $connection,
                 (string) $row->spaceKey,
-                $row->parentPageId,
+                $parentId,
                 $container?->getConfluencePageId(),
                 $title,
                 $storage
@@ -247,6 +259,38 @@ class PublicationService
             return $result->page->id;
         } catch (ExternalApiException $e) {
             throw new ExternalApiException('Page de regroupement « ' . $title . ' » : ' . $e->getMessage(), $e->getCategory(), $e->getHttpStatus(), $e);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Page d'année (« Projet — 2026 ») sous la page parente : réutilisée si elle existe dans l'espace,
+     * créée sinon, jamais modifiée ensuite.
+     */
+    private function ensureYearPage(Release $release, PublicationTargetRow $row, ExternalConnection $connection): string
+    {
+        $key = $row->target->value . '|' . $row->spaceKey . '|' . $row->yearPageTitle;
+        if (isset($this->yearPages[$key])) {
+            return $this->yearPages[$key];
+        }
+        $lock = $this->lockFactory->createLock('publication-year-' . hash('sha256', $key), Publication::STALE_AFTER_SECONDS);
+        $lock->acquire(true);
+        try {
+            $result = $this->publisher->ensurePage(
+                $connection,
+                (string) $row->spaceKey,
+                $row->parentPageId,
+                $row->yearPageTitle,
+                $this->renderer->renderYearStorage($release, $row->year, !$row->useContainer)
+            );
+            if (PagePublishResult::CREATED === $result->action) {
+                $this->publicationLogger->info('Page d\'année créée', $this->context($release, $row) + ['page_id' => $result->page->id]);
+            }
+
+            return $this->yearPages[$key] = $result->page->id;
+        } catch (ExternalApiException $e) {
+            throw new ExternalApiException('Page d\'année « ' . $row->yearPageTitle . ' » : ' . $e->getMessage(), $e->getCategory(), $e->getHttpStatus(), $e);
         } finally {
             $lock->release();
         }

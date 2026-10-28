@@ -232,6 +232,15 @@ class Release
         return $this->releaseDate;
     }
 
+    /**
+     * Année de mise en production, pour le classement par année dans Confluence :
+     * date de MEP saisie, sinon date de livraison Jira, sinon date de création de la release.
+     */
+    public function getMepYear(): int
+    {
+        return (int) ($this->releaseDate ?? $this->jiraVersionReleaseDate ?? $this->getCreatedAt() ?? new \DateTimeImmutable())->format('Y');
+    }
+
     public function setReleaseDate(?\DateTimeImmutable $releaseDate): static
     {
         $this->releaseDate = $releaseDate;

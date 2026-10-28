@@ -10,7 +10,7 @@
         <p class="muted">Release : <strong>{{ release.displayName }}</strong> — {{ rows|length }} cible(s).</p>
     </div>
 </div>
-<div class="alert alert-info">Sur chaque instance, les pages (sauf un PV de recette ayant une page parente dédiée) sont rangées sous une page de regroupement « {{ rows|first.containerTitle }} », créée automatiquement si nécessaire. Les pages publiées auparavant ailleurs y sont déplacées.</div>
+<div class="alert alert-info">Sur chaque instance, les pages sont classées par année de mise en production : page parente › « {{ rows|first.yearPageTitle }} » › « {{ rows|first.containerTitle }} » › pages de la version (un PV de recette ayant une page parente dédiée va directement sous sa page d'année « … — PV de recette {{ rows|first.year }} »). Les pages d'année et de regroupement sont créées automatiquement si nécessaire ; les pages publiées auparavant ailleurs y sont déplacées.</div>
 <section class="card">
     <div class="table-wrap">
         <table class="table">

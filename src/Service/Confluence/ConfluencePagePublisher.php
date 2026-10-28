@@ -55,6 +55,28 @@ class ConfluencePagePublisher
         }
     }
 
+    /**
+     * Page de classement (ex. page d'année) : réutilisée telle quelle si une page de ce titre existe déjà
+     * dans l'espace (contenu et emplacement laissés intacts), créée sous $parentId sinon.
+     */
+    public function ensurePage(ExternalConnection $connection, string $spaceKey, ?string $parentId, string $title, string $storage): PagePublishResult
+    {
+        $api = $this->resolver->for($connection);
+        if (null !== $page = $api->findPageByTitle($connection, $spaceKey, $title)) {
+            return new PagePublishResult($page, PagePublishResult::UNCHANGED);
+        }
+        try {
+            return new PagePublishResult($api->createPage($connection, $spaceKey, $parentId, $title, $storage), PagePublishResult::CREATED);
+        } catch (ExternalApiException $e) {
+            // Création concurrente : la page existe désormais.
+            if (\in_array($e->getCategory(), [ExternalApiException::BAD_REQUEST, ExternalApiException::CONFLICT], true)
+                && null !== ($existing = $api->findPageByTitle($connection, $spaceKey, $title))) {
+                return new PagePublishResult($existing, PagePublishResult::UNCHANGED);
+            }
+            throw $e;
+        }
+    }
+
     private function update(ExternalConnection $connection, ConfluenceApiInterface $api, ConfluencePage $page, string $title, string $storage, ?string $parentId): ConfluencePage
     {
         try {

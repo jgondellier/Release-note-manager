@@ -1,0 +1,8 @@
+{% import 'render/confluence/_macros.xml.twig' as c %}
+{% set meta %}
+<p><strong>Projet :</strong> {{ project.name }} · <strong>Année de mise en production :</strong> {{ year }}</p>
+<p>{{ acceptance ? 'Procès-verbaux de recette des versions mises en production cette année.' : 'Release notes et PV de recette des versions mises en production cette année.' }}</p>
+{% endset %}
+{{ c.panel(title, meta, '#F4F5F7', '#2451B7') }}
+<ac:structured-macro ac:name="children"><ac:parameter ac:name="all">{{ acceptance ? 'false' : 'true' }}</ac:parameter><ac:parameter ac:name="sort">title</ac:parameter></ac:structured-macro>
+<hr /><p><sub>Page de classement créée par Release Note Manager. Elle n'est plus modifiée ensuite : vous pouvez l'enrichir librement.</sub></p>
