@@ -5,6 +5,7 @@
 {% block breadcrumbs %}<a href="{{ path('release_index') }}">Release notes</a> › <a href="{{ path('project_show', {id: release.project.id}) }}">{{ release.project.name }}</a> › {{ release.jiraVersionName }}{% endblock %}
 
 {% block body %}
+{% do rn_ticket_links(release) %}
 {% set editable = not release.archived %}
 {% set ticket_token = csrf_token('ticket-ops-' ~ release.id) %}
 

@@ -22,6 +22,7 @@ class ReleaseNoteRenderer
     public function __construct(
         private readonly Environment $twig,
         private readonly ReleaseNoteViewBuilder $viewBuilder,
+        private readonly TextFormatter $formatter,
     ) {
     }
 
@@ -32,7 +33,7 @@ class ReleaseNoteRenderer
 
     public function renderWeb(Release $release, PublicationFormat $format): string
     {
-        return $this->twig->render(sprintf('render/web/%s.html.twig', $format->value), $this->context($release, $format));
+        return $this->formatter->withTicketLinks($release, fn () => $this->twig->render(sprintf('render/web/%s.html.twig', $format->value), $this->context($release, $format)));
     }
 
     /** @return array<string, mixed> */
@@ -63,7 +64,7 @@ class ReleaseNoteRenderer
 
     public function renderStorage(Release $release, PublicationFormat $format): string
     {
-        $xml = $this->twig->render(sprintf('render/confluence/%s.xml.twig', $format->value), $this->context($release, $format));
+        $xml = $this->formatter->withTicketLinks($release, fn () => $this->twig->render(sprintf('render/confluence/%s.xml.twig', $format->value), $this->context($release, $format)));
         // Compactage : supprime l'indentation des templates (retours à la ligne entre balises) en
         // conservant les espaces significatifs entre éléments en ligne (badges, coche + libellé…).
         $xml = (string) preg_replace('/>[ \t]*\R\s*</u', '><', trim($xml));

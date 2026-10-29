@@ -40,4 +40,23 @@ final class TextFormatterTest extends TestCase
             ['label' => 'https://ex.com/brut', 'url' => 'https://ex.com/brut'],
         ], $links);
     }
+
+    public function testTicketKeysOfTheReleaseBecomeJiraLinks(): void
+    {
+        $connection = (new \App\Entity\ExternalConnection())->setBaseUrl('https://jira.acme.local');
+        $project = (new \App\Entity\Project())->setJiraProjectKey('CCS')->setJiraConnection($connection);
+        $release = (new \App\Entity\Release())->setProject($project);
+        $release->addTicket((new \App\Entity\JiraTicket())->setJiraKey('AER_DCER-537'));
+        $formatter = new TextFormatter();
+        $text = "Corrige CCS-12 et **AER_DCER-537**, voir `CCS-9` et https://x.io/CCS-3 — encodage UTF-8, ISO-9001, XCCS-1, CCS-12a.";
+
+        self::assertStringNotContainsString('<a href="https://jira', $formatter->toHtml($text), 'Sans contexte de release : aucun lien');
+
+        $html = $formatter->withTicketLinks($release, static fn () => $formatter->toHtml($text));
+        self::assertStringContainsString('Corrige <a href="https://jira.acme.local/browse/CCS-12">CCS-12</a> et <strong><a href="https://jira.acme.local/browse/AER_DCER-537">AER_DCER-537</a></strong>', $html);
+        self::assertStringContainsString('<code>CCS-9</code>', $html, 'Pas de lien dans le code');
+        self::assertStringContainsString('<a href="https://x.io/CCS-3">https://x.io/CCS-3</a>', $html, 'URL intacte');
+        self::assertStringContainsString('UTF-8, ISO-9001, XCCS-1, CCS-12a.', $html, 'Préfixes inconnus et mots composés ignorés');
+        self::assertStringNotContainsString('jira.acme', $formatter->toHtml('CCS-1'), 'Contexte rétabli après le rendu');
+    }
 }

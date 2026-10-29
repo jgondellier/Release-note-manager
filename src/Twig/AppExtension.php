@@ -32,6 +32,8 @@ final class AppExtension extends AbstractExtension
     {
         return [
             new TwigFunction('rn_links', $this->linkParser->parse(...)),
+            // {% do rn_ticket_links(release) %} : numéros de ticket des textes de la page liés vers Jira.
+            new TwigFunction('rn_ticket_links', $this->formatter->linkTicketsOf(...)),
             // Couverture Octane : code couleur d'une fiche et lignes du résumé.
             new TwigFunction('rn_coverage_health', OctaneCoverageService::health(...)),
             new TwigFunction('rn_coverage_levels', static fn () => OctaneCoverageService::HEALTH_LEVELS),

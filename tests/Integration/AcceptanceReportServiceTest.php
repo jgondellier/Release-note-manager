@@ -141,7 +141,7 @@ final class AcceptanceReportServiceTest extends DatabaseTestCase
         self::assertStringContainsString('3 anomalies détectées</strong> (2 de la version, 1 liée aux fiches du périmètre)', $web);
         self::assertStringContainsString('Anomalies non terminées (2)', $web);
         self::assertStringContainsString('Anomalies terminées (1)', $web);
-        self::assertStringContainsString('Liée à CCS-3 (est bloqué par)', $web);
+        self::assertMatchesRegularExpression('#Liée à <a href="https://[^"]+/browse/CCS-3">CCS-3</a> \(est bloqué par\)#', $web, 'Numéro de ticket lié vers Jira');
 
         $storage = $renderer->renderStorage($release, PublicationFormat::AcceptanceReport);
         $renderer->assertWellFormed($storage);

@@ -301,7 +301,10 @@ réorganisées, mais un nouveau ticket portant une étiquette déjà présente r
 si son titre a été retouché, et un ticket dont l'étiquette change dans Jira est reclassé à l'actualisation.
 
 Syntaxe des champs de texte : ligne vide = paragraphe, `- ` = puce, `1. ` = liste numérotée,
-`**gras**`, `` `code` ``, URL → lien. Tout le reste est échappé (aucun HTML saisi n'est interprété).
+`**gras**`, `` `code` ``, URL → lien, numéro de ticket (`CCS-123`) → lien vers Jira. Tout le reste est échappé
+(aucun HTML saisi n'est interprété). Les numéros de ticket sont reconnus dans tous les textes (sections, réserves,
+commentaires de test du PV, « liée à … ») pour les préfixes connus de la release : clé du projet Jira et projets
+des tickets, Epics et anomalies importés — « UTF-8 » ou « ISO-9001 » ne deviennent pas des liens.
 
 ## 16. Publication et republication
 

@@ -111,7 +111,7 @@
 <table><tbody>
 <tr><th>Clé</th><th>Résumé</th><th>Origine</th><th>Priorité</th><th>Statut</th><th>Résolution</th></tr>
 {% for a in group.items %}
-<tr><td><a href="{{ a.url }}">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{% if (a.origin ?? 'version') == 'linked' %}Liée à {{ a.linkedFrom|join(', ') }}{% else %}Version{% if a.linkedFrom|default([]) is not empty %} (liée à {{ a.linkedFrom|join(', ') }}){% endif %}{% endif %}</td><td>{{ a.priority }}</td><td>{{ c.status(a.status ?? '?', a.statusCategory == 'done' ? 'Green' : 'Red') }}</td><td>{{ a.resolution ?? '—' }}</td></tr>
+<tr><td><a href="{{ a.url }}">{{ a.key }}</a></td><td>{{ a.summary }}</td><td>{% if (a.origin ?? 'version') == 'linked' %}Liée à {{ a.linkedFrom|join(', ')|rn_inline }}{% else %}Version{% if a.linkedFrom|default([]) is not empty %} (liée à {{ a.linkedFrom|join(', ')|rn_inline }}){% endif %}{% endif %}</td><td>{{ a.priority }}</td><td>{{ c.status(a.status ?? '?', a.statusCategory == 'done' ? 'Green' : 'Red') }}</td><td>{{ a.resolution ?? '—' }}</td></tr>
 {% endfor %}
 </tbody></table>
 {% endset %}

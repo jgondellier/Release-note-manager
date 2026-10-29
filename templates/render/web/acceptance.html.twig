@@ -159,7 +159,7 @@
                         <tr>
                             <td class="rn-nowrap"><a href="{{ a.url }}" target="_blank" rel="noopener noreferrer">{{ a.key }}</a></td>
                             <td>{{ a.summary }}</td>
-                            <td>{% if (a.origin ?? 'version') == 'linked' %}Liée à {{ a.linkedFrom|join(', ') }}{% else %}Version{% if a.linkedFrom|default([]) is not empty %}<br><span class="rn-na">liée à {{ a.linkedFrom|join(', ') }}</span>{% endif %}{% endif %}</td>
+                            <td>{% if (a.origin ?? 'version') == 'linked' %}Liée à {{ a.linkedFrom|join(', ')|rn_inline }}{% else %}Version{% if a.linkedFrom|default([]) is not empty %}<br><span class="rn-na">liée à {{ a.linkedFrom|join(', ')|rn_inline }}</span>{% endif %}{% endif %}</td>
                             <td>{{ a.priority }}</td>
                             <td><span class="rn-status{{ a.statusCategory == 'done' ? ' is-done' : ' is-open' }}">{{ a.status }}</span></td>
                             <td>{{ a.resolution ?? '—' }}</td>
