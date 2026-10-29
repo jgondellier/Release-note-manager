@@ -115,6 +115,8 @@ class ReleaseRefreshService
                 $issue = $found[$ticket->getJiraKey()] ?? null;
                 if (null === $issue) {
                     $plan->inaccessible[] = $ticket;
+                } elseif ($issue->isSubtask) {
+                    $plan->subtasks[] = $ticket;
                 } elseif ($ticket->isAddedManually()) {
                     $this->classifyExisting($plan, $release, $rules, $ticket, $issue, $missingEpics[$issue->key] ?? null);
                 } else {
@@ -185,6 +187,15 @@ class ReleaseRefreshService
             }
         }
 
+        // Sous-tâches importées par une version antérieure de l'application : elles ne font plus partie de la release.
+        $emptied = [];
+        foreach ($plan->subtasks as $ticket) {
+            if (null !== $section = $ticket->getSection()) {
+                $emptied[spl_object_id($section)] = $section;
+            }
+            $release->removeTicket($ticket);
+        }
+
         /** @var array<string, ReleaseSection> $createdSections */
         $createdSections = [];
         if ($createSections) {
@@ -226,8 +237,8 @@ class ReleaseRefreshService
 
         $reclassified = 0;
         $removedSections = 0;
+        $sources = $emptied;
         if ($reclassify) {
-            $sources = [];
             foreach ($plan->regroupings as $row) {
                 $target = $row['target'] ?? $createdSections[$row['plan']->groupKey()] ?? null;
                 if (!$row['automatic'] || null === $target) {
@@ -242,12 +253,12 @@ class ReleaseRefreshService
                 $target->addTicket($ticket);
                 ++$reclassified;
             }
-            // Section automatique vidée, sans texte rédigé : elle n'a plus de raison d'être.
-            foreach ($sources as $section) {
-                if ($section->getTickets()->isEmpty() && SectionSourceType::Manual !== $section->getSourceType() && !$section->hasEditorialContent()) {
-                    $release->removeSection($section);
-                    ++$removedSections;
-                }
+        }
+        // Section automatique vidée, sans texte rédigé : elle n'a plus de raison d'être.
+        foreach ($sources as $section) {
+            if ($section->getTickets()->isEmpty() && SectionSourceType::Manual !== $section->getSourceType() && !$section->hasEditorialContent()) {
+                $release->removeSection($section);
+                ++$removedSections;
             }
         }
 

@@ -434,6 +434,14 @@ class Release
         return $this;
     }
 
+    public function removeTicket(JiraTicket $ticket): static
+    {
+        $ticket->getSection()?->removeTicket($ticket);
+        $this->tickets->removeElement($ticket);
+
+        return $this;
+    }
+
     public function findTicketByKey(string $key): ?JiraTicket
     {
         foreach ($this->tickets as $ticket) {

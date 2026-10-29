@@ -256,7 +256,8 @@ php bin/console app:connection:test 3      # une seule
 2. Les versions Jira du projet sont chargées (non livrées d'abord). Les versions ayant déjà une release
    proposent « Ouvrir la release existante ».
 3. *Sélectionner* : informations de la version + **aperçu du regroupement** (aucune écriture).
-   La JQL utilisée est affichée : `project = "CCS" AND fixVersion = <id> ORDER BY issuetype ASC, key ASC`
+   La JQL utilisée est affichée : `project = "CCS" AND fixVersion = <id> AND issuetype not in subTaskIssueTypes() ORDER BY issuetype ASC, key ASC`
+   (**sous-tâches exclues**)
    (l'identifiant de version évite toute ambiguïté ; chaque ticket reçu est en outre contrôlé).
 4. *Importer et créer le brouillon*.
 5. Éditeur : onglets **IT interne / Fonctionnel / Communication**, sections (glisser-déposer ou ↑↓),
@@ -266,6 +267,8 @@ php bin/console app:connection:test 3      # une seule
    proposées, reclassements) ; rien n'est appliqué avant confirmation. Les titres et textes ne sont jamais
    remplacés ; les tickets retirés restent en place (signalés) sauf si vous cochez explicitement
    « Détacher ».
+   Les **sous-tâches** ne sont jamais reprises (ni à l'import, ni à l'actualisation, ni en ajout par clé) ;
+   celles importées par une version antérieure sont retirées à la prochaine actualisation.
    **Reclassement** (case cochée par défaut) : si l'Epic ou l'étiquette d'un ticket a changé dans Jira, le
    ticket rejoint la section correspondante (créée au besoin), à condition qu'il soit encore dans la section où
    le regroupement automatique l'avait placé. Un ticket déplacé à la main n'est jamais déplacé (il est

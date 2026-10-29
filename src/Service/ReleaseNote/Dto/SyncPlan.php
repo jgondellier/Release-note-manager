@@ -31,6 +31,9 @@ final class SyncPlan
     /** @var list<array{ticket: JiraTicket, issue: JiraIssue, epic: ?EpicReference}> tickets existants qui n'ont plus la version */
     public array $removedFromVersion = [];
 
+    /** @var list<JiraTicket> sous-tâches importées avant leur exclusion : retirées de la release */
+    public array $subtasks = [];
+
     /** @var list<JiraTicket> tickets introuvables / sans droits */
     public array $inaccessible = [];
 
@@ -51,7 +54,7 @@ final class SyncPlan
 
     public function hasEditorialImpact(): bool
     {
-        return [] !== $this->removedFromVersion || [] !== $this->inaccessible || [] !== $this->newSections || [] !== $this->regroupings;
+        return [] !== $this->removedFromVersion || [] !== $this->inaccessible || [] !== $this->newSections || [] !== $this->regroupings || [] !== $this->subtasks;
     }
 
     /** @return array<string, int> */
@@ -63,6 +66,7 @@ final class SyncPlan
             'unchanged' => \count($this->unchanged),
             'removed' => \count($this->removedFromVersion),
             'inaccessible' => \count($this->inaccessible),
+            'subtasks' => \count($this->subtasks),
             'sections_created' => \count($this->newSections),
             'epic_changes' => \count($this->epicChanges),
             'regroupings' => \count(array_filter($this->regroupings, static fn (array $r) => $r['automatic'])),

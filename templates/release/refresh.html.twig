@@ -53,6 +53,11 @@
         <h3>Tickets qui ne portent plus la version ({{ plan.removedFromVersion|length }})</h3>
         <ul>{% for row in plan.removedFromVersion %}<li><code>{{ row.ticket.jiraKey }}</code> {{ row.ticket.summary }} — section « {{ row.ticket.section ? row.ticket.section.title : 'Non classés' }} » (versions actuelles : {{ row.issue.fixVersions|map(v => v.name)|join(', ') ?: 'aucune' }})</li>{% endfor %}</ul>
     {% endif %}
+    {% if plan.subtasks is not empty %}
+        <h3>Sous-tâches retirées de la release ({{ plan.subtasks|length }})</h3>
+        <p class="small muted">Les sous-tâches ne sont plus reprises : elles seront retirées (leur ticket parent reste présent).</p>
+        <ul>{% for t in plan.subtasks %}<li><code>{{ t.jiraKey }}</code> {{ t.summary }} — section « {{ t.section ? t.section.title : 'Non classés' }} »</li>{% endfor %}</ul>
+    {% endif %}
     {% if plan.inaccessible is not empty %}
         <h3>Tickets introuvables ou inaccessibles ({{ plan.inaccessible|length }})</h3>
         <ul>{% for t in plan.inaccessible %}<li><code>{{ t.jiraKey }}</code> {{ t.summary }}</li>{% endfor %}</ul>

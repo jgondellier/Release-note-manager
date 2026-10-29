@@ -214,8 +214,8 @@ final class ReleaseController extends AbstractAppController
                 true,
             );
             $this->addFlash('success', sprintf(
-                'Actualisation terminée : %d ajouté(s), %d actualisé(s), %d inchangé(s), %d reclassé(s), %d retiré(s) de la version, %d inaccessible(s), %d section(s) créée(s), %d section(s) vide(s) supprimée(s). Le wording n\'a pas été modifié.',
-                $report['added'], $report['updated'], $report['unchanged'], $report['regroupings'], $report['removed'], $report['inaccessible'], $report['sections_created'], $report['sections_removed']
+                'Actualisation terminée : %d ajouté(s), %d actualisé(s), %d inchangé(s), %d reclassé(s), %d retiré(s) de la version, %d inaccessible(s), %d sous-tâche(s) retirée(s), %d section(s) créée(s), %d section(s) vide(s) supprimée(s). Le wording n\'a pas été modifié.',
+                $report['added'], $report['updated'], $report['unchanged'], $report['regroupings'], $report['removed'], $report['inaccessible'], $report['subtasks'], $report['sections_created'], $report['sections_removed']
             ));
         } catch (ExternalApiException $e) {
             $this->addFlash('danger', 'Actualisation impossible : ' . $e->getMessage());

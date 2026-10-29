@@ -43,10 +43,10 @@ class JiraIssueService
         $jql = JiraJqlBuilder::forFixVersion($project->getJiraProjectKey(), $version->id);
         $issues = $this->search($connection, $jql, $withComments ? ['comment'] : []);
 
-        // Contrôle défensif : on écarte tout ticket qui ne porte pas la version demandée.
-        $filtered = array_values(array_filter($issues, static fn (JiraIssue $i) => $i->hasFixVersion($version->id)));
+        // Contrôle défensif : on écarte tout ticket qui ne porte pas la version demandée, et les sous-tâches.
+        $filtered = array_values(array_filter($issues, static fn (JiraIssue $i) => $i->hasFixVersion($version->id) && !$i->isSubtask));
         if (\count($filtered) !== \count($issues)) {
-            $this->integrationLogger->warning('Tickets hors version écartés', [
+            $this->integrationLogger->warning('Tickets hors version ou sous-tâches écartés', [
                 'project' => $project->getCode(),
                 'version_id' => $version->id,
                 'discarded' => \count($issues) - \count($filtered),

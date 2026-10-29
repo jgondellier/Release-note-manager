@@ -217,6 +217,9 @@ class ReleaseSectionService
         if (null !== $release->findTicketByIssueId($issue->id)) {
             throw new \InvalidArgumentException(sprintf('Le ticket %s est déjà présent (sous une autre clé).', $key));
         }
+        if ($issue->isSubtask) {
+            throw new \InvalidArgumentException(sprintf('%s est une sous-tâche : les sous-tâches ne sont pas reprises dans les release notes (ajoutez plutôt son ticket parent %s).', $key, $issue->parentKey ?? ''));
+        }
         $epic = $this->epicResolver->resolve($connection, [$issue])[$issue->key] ?? null;
 
         $ticket = new JiraTicket();

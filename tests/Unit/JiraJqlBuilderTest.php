@@ -12,7 +12,7 @@ final class JiraJqlBuilderTest extends TestCase
     public function testFixVersionQueryTargetsOnlyTheSelectedVersionById(): void
     {
         self::assertSame(
-            'project = "CCS" AND fixVersion = 10042 ORDER BY issuetype ASC, key ASC',
+            'project = "CCS" AND fixVersion = 10042 AND issuetype not in subTaskIssueTypes() ORDER BY issuetype ASC, key ASC',
             JiraJqlBuilder::forFixVersion('CCS', '10042')
         );
     }
@@ -20,7 +20,7 @@ final class JiraJqlBuilderTest extends TestCase
     public function testVersionNamesAreEscaped(): void
     {
         $jql = JiraJqlBuilder::forFixVersion('CCS', 'v2 "beta" \\ final');
-        self::assertSame('project = "CCS" AND fixVersion = "v2 \\"beta\\" \\\\ final" ORDER BY issuetype ASC, key ASC', $jql);
+        self::assertSame('project = "CCS" AND fixVersion = "v2 \\"beta\\" \\\\ final" AND issuetype not in subTaskIssueTypes() ORDER BY issuetype ASC, key ASC', $jql);
     }
 
     public function testKeyQueryIgnoresInvalidKeys(): void

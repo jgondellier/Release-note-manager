@@ -10,6 +10,7 @@ use App\Entity\Release;
 use App\Enum\ReleaseStatus;
 use App\Enum\SectionSourceType;
 use App\Service\ReleaseNote\ReleaseAlreadyExistsException;
+use App\Service\Jira\JiraJqlBuilder;
 use App\Service\ReleaseNote\ReleaseImportService;
 use App\Tests\Support\DatabaseTestCase;
 use App\Tests\Support\JiraFixtures;
@@ -117,5 +118,42 @@ final class ReleaseImportServiceTest extends DatabaseTestCase
         $report = $this->service(\App\Service\ReleaseNote\ReleaseRefreshService::class)->apply($release, true, false);
         self::assertSame(0, $report['sections_created']);
         self::assertSame($sections[0]->getId(), $release->findTicketByKey('CCS-6')?->getSection()?->getId());
+    }
+
+    public function testSubtasksAreNeitherImportedNorKeptOnRefresh(): void
+    {
+        $project = $this->createProject();
+        $subtask = static fn (string $key) => JiraFixtures::issue($key, 'Sous-tâche', 'Détail technique', [
+            'issuetype' => ['name' => 'Sous-tâche', 'subtask' => true, 'hierarchyLevel' => -1],
+            'parent' => ['key' => 'CCS-4', 'fields' => ['summary' => 'Date erronée', 'issuetype' => ['name' => 'Bug', 'hierarchyLevel' => 0]]],
+        ]);
+        $issues = [JiraFixtures::issue('CCS-4', 'Bug', 'Date erronée'), $subtask('CCS-7')];
+        $this->fakeJiraCloud($issues);
+
+        $service = $this->service(ReleaseImportService::class);
+        self::assertStringContainsString('issuetype not in subTaskIssueTypes()', JiraJqlBuilder::forFixVersion('CCS', '10042'));
+        $release = $service->import($project, '10042');
+        self::assertSame(['CCS-4'], array_map(static fn (JiraTicket $t) => $t->getJiraKey(), $release->getTickets()->toArray()), 'Sous-tâche écartée même si Jira la renvoie');
+
+        // Release importée avant l'exclusion : une sous-tâche y figure, seule dans sa section.
+        $old = (new JiraTicket())->setJiraIssueId('90008')->setJiraKey('CCS-8')->setIssueType('Sous-tâche')->setSummary('Ancienne sous-tâche')->setJiraUrl('https://x/browse/CCS-8');
+        $release->addTicket($old);
+        $section = (new \App\Entity\ReleaseSection())->setTitle('Sous-tâches')->setSourceType(SectionSourceType::IssueType)->setSourceKey('Sous-tâche');
+        $release->addSection($section);
+        $section->addTicket($old);
+        $this->em->flush();
+        $issues[] = $subtask('CCS-8');
+
+        $refresh = $this->service(\App\Service\ReleaseNote\ReleaseRefreshService::class);
+        self::assertSame(['CCS-8'], array_map(static fn (JiraTicket $t) => $t->getJiraKey(), $refresh->plan($release)->subtasks));
+        $report = $refresh->apply($release);
+        self::assertSame(1, $report['subtasks']);
+        self::assertSame(0, $report['removed']);
+        self::assertSame(1, $report['sections_removed'], 'Section vidée sans texte supprimée');
+
+        $this->em->clear();
+        $release = $this->em->find(Release::class, $release->getId());
+        self::assertNull($release->findTicketByKey('CCS-8'));
+        self::assertSame(1, $this->em->getRepository(JiraTicket::class)->count([]));
     }
 }

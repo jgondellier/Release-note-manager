@@ -21,13 +21,14 @@ final class JiraJqlBuilder
      * Tickets d'un projet portant une Fix Version donnée.
      * L'identifiant numérique de version est utilisé de préférence : il évite toute
      * ambiguïté (versions homonymes, caractères spéciaux) ; à défaut, le nom est échappé.
+     * Les sous-tâches sont exclues (fonction JQL standard, Cloud et Server/DC).
      */
     public static function forFixVersion(string $projectKey, string $versionIdOrName): string
     {
         $version = ctype_digit($versionIdOrName) ? $versionIdOrName : self::quote($versionIdOrName);
 
         return sprintf(
-            'project = %s AND fixVersion = %s ORDER BY issuetype ASC, key ASC',
+            'project = %s AND fixVersion = %s AND issuetype not in subTaskIssueTypes() ORDER BY issuetype ASC, key ASC',
             self::quote($projectKey),
             $version
         );
