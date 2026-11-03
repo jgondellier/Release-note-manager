@@ -457,6 +457,14 @@ Volume pour une version de *N* tickets :
 | Actualisation du PV de recette | versions + recherche (**commentaires inclus**) + 1 par lot de 50 anomalies liées ; un appel de commentaires seulement pour un ticket dont Jira tronque les commentaires |
 | Couverture Octane | 1 par fiche (API de l'extension), la 1re seule puis **6 en parallèle** ; arrêt immédiat si l'extension est absente |
 
+Tickets sortis de la version (retirés, devenus sous-tâches, supprimés) : relus par lots de 50 ; si Jira refuse
+un lot parce qu'une clé n'existe plus, les clés citées dans l'erreur sont retirées et le lot est rejoué (pas
+d'appel ticket par ticket). Cette relecture fait partie des données réutilisées à la confirmation.
+
+**Limitation de débit (429)** : la requête est rejouée après le délai demandé par Jira/Confluence (en-tête
+`Retry-After`, sinon 2, 4, 8, 16 s), au plus 4 fois et 60 s d'attente cumulée ; au-delà, l'erreur est affichée.
+Chaque attente est tracée dans le journal d'intégration (`rate_limited`).
+
 La réutilisation entre aperçu et confirmation garantit aussi que ce qui est appliqué est exactement ce qui a été
 affiché. Elle utilise le pool de cache `cache.jira_snapshot` (fichiers sous `var/cache`, 15 min, usage unique).
 

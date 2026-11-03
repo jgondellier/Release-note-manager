@@ -26,6 +26,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
 class AtlassianApiClient
 {
     private const MAX_DETAIL_LENGTH = 300;
+    /** Limitation de débit (429) : nouvelles tentatives et attente cumulée maximale par requête. */
+    private const RATE_LIMIT_RETRIES = 4;
+    private const RATE_LIMIT_MAX_WAIT = 60.0;
 
     public function __construct(
         #[Autowire(service: 'app.atlassian_http_client')]
@@ -73,9 +76,53 @@ class AtlassianApiClient
      */
     public function request(ExternalConnection $connection, string $method, string $path, array $options = []): array
     {
-        [$response, $secret, $started] = $this->send($connection, $method, $path, $options);
+        $waited = 0.0;
+        for ($attempt = 0; ; ++$attempt) {
+            [$response, $secret, $started] = $this->send($connection, $method, $path, $options);
+            $delay = $this->rateLimitDelay($response, $attempt, $waited);
+            if (null === $delay) {
+                return $this->read($connection, $method, $path, $response, $secret, $started);
+            }
+            // 429 : la requête n'a pas été traitée ; on attend le délai demandé par le serveur puis on la rejoue.
+            $this->log('warning', $connection, $method, $path, 429, $started, sprintf('rate_limited, nouvel essai dans %.1f s', $delay));
+            $response->cancel();
+            $this->pause($delay);
+            $waited += $delay;
+        }
+    }
 
-        return $this->read($connection, $method, $path, $response, $secret, $started);
+    /**
+     * Délai d'attente avant de rejouer une requête limitée (429), ou null s'il ne faut pas réessayer.
+     * En-tête Retry-After (secondes ou date HTTP) si présent, sinon 2, 4, 8… s.
+     */
+    private function rateLimitDelay(ResponseInterface $response, int $attempt, float $waited): ?float
+    {
+        try {
+            if (429 !== $response->getStatusCode()) {
+                return null;
+            }
+            $header = $response->getHeaders(false)['retry-after'][0] ?? null;
+        } catch (HttpClientException) {
+            return null; // erreur réseau : traitée par read()
+        }
+        if ($attempt >= self::RATE_LIMIT_RETRIES) {
+            return null;
+        }
+        $delay = 2.0 ** ($attempt + 1);
+        if (null !== $header && '' !== trim($header)) {
+            $delay = ctype_digit(trim($header)) ? (float) trim($header) : max(0.0, (float) (strtotime($header) - time()));
+        }
+        $delay = min($delay, 30.0);
+
+        return $waited + $delay > self::RATE_LIMIT_MAX_WAIT ? null : $delay;
+    }
+
+    /** Attente (isolée pour les tests). */
+    protected function pause(float $seconds): void
+    {
+        if ($seconds > 0) {
+            usleep((int) round($seconds * 1_000_000));
+        }
     }
 
     /**
@@ -100,6 +147,15 @@ class AtlassianApiClient
             }
             foreach ($pending as $key => [$path, $response, $secret, $started]) {
                 try {
+                    $delay = $this->rateLimitDelay($response, 0, 0.0);
+                    if (null !== $delay) {
+                        // Limitation de débit : attente demandée, puis requête rejouée seule (avec ses propres essais).
+                        $this->log('warning', $connection, 'GET', $path, 429, $started, sprintf('rate_limited, nouvel essai dans %.1f s', $delay));
+                        $response->cancel();
+                        $this->pause($delay);
+                        $results[$key] = $this->get($connection, $path, $chunk[$key][1]);
+                        continue;
+                    }
                     $results[$key] = $this->read($connection, 'GET', $path, $response, $secret, $started);
                 } catch (ExternalApiException $e) {
                     $results[$key] = $e;
@@ -221,7 +277,8 @@ class AtlassianApiClient
 
     private function buildHttpError(ExternalConnection $connection, int $status, string $content, string $secret): ExternalApiException
     {
-        $detail = $this->sanitize($this->extractApiMessage($content), $secret);
+        $fullDetail = $this->sanitize($this->extractApiMessage($content), $secret, null);
+        $detail = mb_substr($fullDetail, 0, self::MAX_DETAIL_LENGTH);
         $suffix = '' !== $detail ? ' Détail : ' . $detail : '';
         $name = $connection->getName();
 
@@ -235,7 +292,7 @@ class AtlassianApiClient
             default => [sprintf('Requête refusée par « %s » (%d).', $name, $status), ExternalApiException::BAD_REQUEST],
         };
 
-        return new ExternalApiException($message . $suffix, $category, $status);
+        return new ExternalApiException($message . $suffix, $category, $status, null, $fullDetail);
     }
 
     /** Extrait un message lisible des formats d'erreur Jira et Confluence (v1 et v2). */
@@ -269,14 +326,14 @@ class AtlassianApiClient
         return trim(implode(' ; ', array_filter($messages)));
     }
 
-    private function sanitize(string $text, string $secret): string
+    private function sanitize(string $text, string $secret, ?int $maxLength = self::MAX_DETAIL_LENGTH): string
     {
         if ('' !== $secret) {
             $text = str_replace($secret, '***', $text);
         }
         $text = (string) preg_replace('/\s+/', ' ', strip_tags($text));
 
-        return mb_substr(trim($text), 0, self::MAX_DETAIL_LENGTH);
+        return null === $maxLength ? trim($text) : mb_substr(trim($text), 0, $maxLength);
     }
 
     private function shortTransportReason(string $message): string

@@ -66,22 +66,7 @@ class JiraIssueService
         $keys = array_values(array_unique(array_filter($keys, JiraJqlBuilder::isValidIssueKey(...))));
         $result = [];
         foreach (array_chunk($keys, self::KEY_BATCH_SIZE) as $chunk) {
-            try {
-                $issues = $this->search($connection, JiraJqlBuilder::forKeys($chunk));
-            } catch (ExternalApiException $e) {
-                // Jira renvoie 400 si une clé du lot n'existe plus : on bascule en appels unitaires.
-                if (ExternalApiException::BAD_REQUEST !== $e->getCategory()) {
-                    throw $e;
-                }
-                $issues = [];
-                foreach ($chunk as $key) {
-                    $issue = $this->getIssue($connection, $key);
-                    if (null !== $issue) {
-                        $issues[] = $issue;
-                    }
-                }
-            }
-            foreach ($issues as $issue) {
+            foreach ($this->searchKeys($connection, $chunk) as $issue) {
                 $result[$issue->key] = $issue;
             }
         }
@@ -90,6 +75,45 @@ class JiraIssueService
     }
 
     /** Ticket unique, ou null s'il est introuvable / inaccessible. */
+    /**
+     * Jira refuse tout le lot (400) si une clé n'existe plus ou n'est pas visible : les clés citées dans
+     * l'erreur sont retirées et le lot est rejoué. Appels unitaires seulement si l'erreur ne les nomme pas.
+     *
+     * @param list<string> $keys
+     *
+     * @return list<JiraIssue>
+     */
+    private function searchKeys(ExternalConnection $connection, array $keys): array
+    {
+        for ($round = 0; $round < 5 && [] !== $keys; ++$round) {
+            try {
+                return $this->search($connection, JiraJqlBuilder::forKeys($keys));
+            } catch (ExternalApiException $e) {
+                if (ExternalApiException::BAD_REQUEST !== $e->getCategory()) {
+                    throw $e;
+                }
+                preg_match_all('/[A-Z][A-Z0-9_]+-\d+/', $e->getApiDetail(), $m);
+                $rejected = array_intersect(array_map('strtoupper', $keys), $m[0]);
+                if ([] === $rejected) {
+                    break;
+                }
+                $keys = array_values(array_filter($keys, static fn (string $k) => !\in_array(strtoupper($k), $rejected, true)));
+            }
+        }
+        if ([] === $keys) {
+            return [];
+        }
+
+        $issues = [];
+        foreach ($keys as $key) {
+            if (null !== $issue = $this->getIssue($connection, $key)) {
+                $issues[] = $issue;
+            }
+        }
+
+        return $issues;
+    }
+
     public function getIssue(ExternalConnection $connection, string $key): ?JiraIssue
     {
         JiraApi::assertJira($connection);

@@ -13,6 +13,7 @@ use App\Enum\ConnectionProvider;
 use App\Enum\DeploymentType;
 use App\Enum\SectionCategory;
 use App\Service\Security\SecretEncryptionService;
+use App\Tests\Support\FakeAtlassianServer;
 use App\Tests\Support\JiraFixtures;
 use App\Tests\Support\WebTestCaseBase;
 
@@ -147,5 +148,59 @@ final class ReleaseEditorTest extends WebTestCaseBase
         self::assertSelectorTextContains('body', '1 reclassé(s)');
         $this->em->clear();
         self::assertSame('nouveau-lot', $this->em->find(Release::class, $release->getId())->findTicketByKey('CCS-4')->getSection()?->getTitle());
+    }
+
+    public function testRefreshOfLargeReleaseConfirmsWithoutCallingJiraAgain(): void
+    {
+        $project = $this->project();
+        $issues = [];
+        for ($n = 1; $n <= 130; ++$n) {
+            $issues[] = JiraFixtures::issue('CCS-' . (100 + $n), 0 === $n % 2 ? 'Bug' : 'Story', 'Ticket ' . $n);
+        }
+        $deleted = 'CCS-111';
+        $this->server->on('POST', '/rest/api/3/search/jql', static function (array $body) use (&$issues, $deleted) {
+            $jql = (string) $body['jql'];
+            if (str_starts_with($jql, 'key in')) {
+                preg_match_all('/"([A-Z]+-\d+)"/', $jql, $m);
+                if (\in_array($deleted, $m[1], true)) {
+                    return FakeAtlassianServer::json(['errorMessages' => [sprintf("An issue with key '%s' does not exist for field 'key'.", $deleted)]], 400);
+                }
+
+                return ['issues' => array_values(array_filter($issues, static fn ($i) => \in_array($i['key'], $m[1], true))), 'isLast' => true];
+            }
+
+            // JQL réelle : sous-tâches exclues.
+            return ['issues' => array_values(array_filter($issues, static fn ($i) => !($i['fields']['issuetype']['subtask'] ?? false))), 'isLast' => true];
+        });
+        $release = static::getContainer()->get(\App\Service\ReleaseNote\ReleaseImportService::class)->import($project, '10042');
+        self::assertCount(130, $release->getTickets());
+
+        // Dans Jira : 20 tickets deviennent des sous-tâches, dont un est ensuite supprimé ; 7 résumés modifiés.
+        foreach ($issues as $i => &$issue) {
+            if ($i < 20) {
+                $issue['fields']['issuetype'] = ['name' => 'Sous-tâche', 'subtask' => true, 'hierarchyLevel' => -1];
+            } elseif ($i < 27) {
+                $issue['fields']['summary'] .= ' (modifié)';
+            }
+        }
+        unset($issue);
+        $issues = array_values(array_filter($issues, static fn ($i) => $i['key'] !== $deleted));
+        $this->login();
+        $this->server->requests = [];
+
+        $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/refresh');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', 'Sous-tâches retirées de la release (19)');
+        self::assertCount(0, $this->server->requestsMatching('GET', '/rest/api/3/issue/'), 'Clé supprimée retirée du lot : aucun appel ticket par ticket');
+        self::assertLessThanOrEqual(5, \count($this->server->requests), 'Aperçu : versions + recherche + relecture par lot');
+
+        $before = \count($this->server->requests);
+        $this->client->submit($crawler->selectButton('Appliquer l\'actualisation')->form());
+        self::assertResponseRedirects();
+        self::assertCount($before, $this->server->requests, 'Confirmation : aucune requête Jira');
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('body', '7 actualisé(s)');
+        self::assertSelectorTextContains('body', '19 sous-tâche(s) retirée(s)');
+        self::assertSelectorTextContains('body', '1 inaccessible(s)');
     }
 }

@@ -27,8 +27,15 @@ final class ExternalApiException extends \RuntimeException
         private readonly string $category,
         private readonly ?int $httpStatus = null,
         ?\Throwable $previous = null,
+        private readonly string $apiDetail = '',
     ) {
         parent::__construct($message, $httpStatus ?? 0, $previous);
+    }
+
+    /** Message complet renvoyé par l'API (non tronqué, sans secret), pour exploitation par le code. */
+    public function getApiDetail(): string
+    {
+        return $this->apiDetail;
     }
 
     public function getCategory(): string

@@ -25,12 +25,16 @@ trait HttpTestTrait
         $this->server ??= new FakeAtlassianServer();
         $this->encryption ??= new SecretEncryptionService(SecretEncryptionService::generateKey());
 
-        return new AtlassianApiClient(
-            new MockHttpClient($this->server),
-            $this->encryption,
-            new HttpClientOptionsProvider('', '', '', true, 5, 10),
-            new NullLogger(),
-        );
+        // Attentes de limitation de débit enregistrées au lieu d'être réellement effectuées.
+        return new class(new MockHttpClient($this->server), $this->encryption, new HttpClientOptionsProvider('', '', '', true, 5, 10), new NullLogger()) extends AtlassianApiClient {
+            /** @var list<float> */
+            public array $pauses = [];
+
+            protected function pause(float $seconds): void
+            {
+                $this->pauses[] = $seconds;
+            }
+        };
     }
 
     private function connection(ConnectionProvider $provider, DeploymentType $type, string $baseUrl, AuthenticationType $auth = AuthenticationType::Basic, string $secret = 'TOKEN-SECRET-123'): ExternalConnection

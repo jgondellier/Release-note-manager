@@ -68,15 +68,13 @@ class ReleaseRefreshService
 
         $snapshotKey = sprintf('refresh|%d|%d|%s|%s', $release->getId(), $connection->getId(), $project->getJiraProjectKey(), $release->getJiraVersionId());
         $snapshot = $reuseRemembered ? $this->snapshots->take($snapshotKey) : null;
-        if (\is_array($snapshot) && 3 === \count($snapshot)) {
-            [$version, $issues, $epics] = $snapshot;
+        $lookups = [];
+        if (\is_array($snapshot) && 4 === \count($snapshot)) {
+            [$version, $issues, $epics, $lookups] = $snapshot;
         } else {
             $version = $this->versionService->getVersion($project, $release->getJiraVersionId());
             $issues = $this->issueService->findByFixVersion($project, $version);
             $epics = $this->epicResolver->resolve($connection, $issues);
-        }
-        if ($remember) {
-            $this->snapshots->save($snapshotKey, [$version, $issues, $epics]);
         }
         $rules = $this->mappingResolver->forProject($project);
 
@@ -108,9 +106,16 @@ class ReleaseRefreshService
 
         // Tickets absents de la JQL : retirés de la version, ou inaccessibles.
         if ([] !== $missing) {
-            $found = $this->issueService->findByKeys($connection, array_map(static fn (JiraTicket $t) => $t->getJiraKey(), $missing));
-            $foundIssues = array_values($found);
-            $missingEpics = [] === $foundIssues ? [] : $this->epicResolver->resolve($connection, $foundIssues);
+            $missingKeys = array_map(static fn (JiraTicket $t) => $t->getJiraKey(), $missing);
+            sort($missingKeys);
+            $lookupKey = implode(',', $missingKeys);
+            // Relecture par clé mémorisée avec l'aperçu : la confirmation ne la refait pas.
+            if (!isset($lookups[$lookupKey])) {
+                $found = $this->issueService->findByKeys($connection, $missingKeys);
+                $foundIssues = array_values($found);
+                $lookups[$lookupKey] = [$found, [] === $foundIssues ? [] : $this->epicResolver->resolve($connection, $foundIssues)];
+            }
+            [$found, $missingEpics] = $lookups[$lookupKey];
             foreach ($missing as $ticket) {
                 $issue = $found[$ticket->getJiraKey()] ?? null;
                 if (null === $issue) {
@@ -137,6 +142,10 @@ class ReleaseRefreshService
                 $plan->newSections[$sectionPlan->groupKey()] ??= $sectionPlan;
             }
             $plan->new[] = ['issue' => $issue, 'epic' => $epic, 'section' => $section, 'plan' => $sectionPlan];
+        }
+
+        if ($remember) {
+            $this->snapshots->save($snapshotKey, [$version, $issues, $epics, $lookups]);
         }
 
         return $plan;

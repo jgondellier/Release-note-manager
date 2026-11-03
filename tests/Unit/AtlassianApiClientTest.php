@@ -93,4 +93,54 @@ final class AtlassianApiClientTest extends TestCase
         }
         self::assertSame([], $this->server->requests);
     }
+
+    public function testRateLimitedRequestIsReplayedAfterRetryAfterDelay(): void
+    {
+        $client = $this->client();
+        $calls = 0;
+        $this->server->on('POST', '/rest/api/3/search/jql', static function () use (&$calls) {
+            return 3 > ++$calls
+                ? new MockResponse('{"message":"Rate limit exceeded"}', ['http_code' => 429, 'response_headers' => ['content-type' => 'application/json', 'retry-after' => '7']])
+                : ['issues' => [], 'isLast' => true];
+        });
+
+        $data = $client->post($this->connection(ConnectionProvider::Jira, DeploymentType::Cloud, 'https://acme.atlassian.net'), '/rest/api/3/search/jql', ['jql' => 'x']);
+
+        self::assertSame(['issues' => [], 'isLast' => true], $data);
+        self::assertSame(3, $calls);
+        self::assertSame([7.0, 7.0], $client->pauses, 'Délai Retry-After respecté');
+    }
+
+    public function testRateLimitGivesUpAfterBoundedWait(): void
+    {
+        $client = $this->client();
+        $this->server->on('GET', '/x', static fn () => FakeAtlassianServer::json(['message' => 'slow down'], 429));
+
+        try {
+            $client->get($this->connection(ConnectionProvider::Jira, DeploymentType::Server, 'https://jira.local'), '/x');
+            self::fail('Exception attendue');
+        } catch (ExternalApiException $e) {
+            self::assertSame(ExternalApiException::RATE_LIMITED, $e->getCategory());
+        }
+        self::assertSame([2.0, 4.0, 8.0, 16.0], $client->pauses, 'Attente croissante, bornée (4 nouvelles tentatives)');
+        self::assertCount(5, $this->server->requests);
+    }
+
+    public function testParallelRequestsReplayRateLimitedOnes(): void
+    {
+        $client = $this->client();
+        $seen = [];
+        $this->server->on('GET', '/c', static function (array $b, string $url, array $q) use (&$seen) {
+            $seen[$q['k']] = ($seen[$q['k']] ?? 0) + 1;
+
+            return 'b' === $q['k'] && 1 === $seen['b']
+                ? new MockResponse('{}', ['http_code' => 429, 'response_headers' => ['content-type' => 'application/json', 'retry-after' => '1']])
+                : ['k' => $q['k']];
+        });
+
+        $results = $client->getMany($this->connection(ConnectionProvider::Jira, DeploymentType::Server, 'https://jira.local'), ['a' => ['/c', ['k' => 'a']], 'b' => ['/c', ['k' => 'b']], 'c' => ['/c', ['k' => 'c']]]);
+
+        self::assertSame(['a' => ['k' => 'a'], 'b' => ['k' => 'b'], 'c' => ['k' => 'c']], $results);
+        self::assertSame([1.0], $client->pauses);
+    }
 }
