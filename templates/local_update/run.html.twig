@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Journal de mise à jour{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('local_update_index') }}">Mises à jour</a> › {{ run.startedAt|date('d/m/Y H:i') }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div><h1>Mise à jour du {{ run.startedAt|date('d/m/Y H:i') }}</h1></div>
+    <div class="actions"><a class="btn btn-secondary" href="{{ path('local_update_index') }}">↻ Relancer / historique</a></div>
+</div>
+
+<div class="header-meta" aria-live="polite">
+    <span id="run-status">{{ include('local_update/_status.html.twig', {status: run.status}) }}</span>
+    <span>Réf. <code>{{ run.ref }}</code></span>
+    {% if run.version %}<span class="muted">Version {{ run.version }}</span>{% endif %}
+    {% if run.durationSeconds is not null %}<span class="muted">{{ run.durationSeconds }} s</span>{% endif %}
+    {% set files = run.summary.files ?? null %}
+    {% if files %}<span><span class="text-success">+{{ files.added }}</span> · ~{{ files.modified }} · <span class="text-danger">−{{ files.deleted }}</span> · {{ files.unchanged }} inchangé(s)</span>{% endif %}
+    {% if not run.finished %}<span class="small muted">Journal actualisé automatiquement…</span>{% endif %}
+</div>
+
+{% if run.status == 'pending' %}
+    <div class="alert alert-warning" id="pending-warning" hidden>
+        Le traitement en arrière-plan n'a pas démarré. Vérifiez <code>RNM_UPDATE_PHP_BINARY</code> (chemin de <code>php.exe</code>) et le fichier <code>var/local-updates/worker.log</code>,
+        ou passez <code>RNM_UPDATE_BACKGROUND=0</code> dans <code>.env.local</code> pour exécuter la mise à jour dans la page.
+    </div>
+{% endif %}
+
+{% if run.summary.commands ?? [] %}
+<section class="card">
+    <ul class="check-list">
+        {% for c in run.summary.commands %}
+            <li><code>{{ c.command }}</code> —
+                {% if c.exitCode is null %}<span class="muted">non lancée (simulation)</span>
+                {% elseif c.exitCode == 0 %}<span class="text-success">✔ {{ c.seconds }} s</span>
+                {% else %}<span class="text-danger">✘ code {{ c.exitCode }}</span>{% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+
+<pre id="run-log" class="run-log" tabindex="0">{{ run.log ?: 'Démarrage…' }}</pre>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .run-log { background: #1e1e1e; color: #e6e6e6; padding: 1rem; border-radius: 8px; max-height: 70vh; overflow: auto; font-size: .8rem; white-space: pre-wrap; word-break: break-word; }
+    .text-success { color: #1f845a; }
+</style>
+{% endblock %}
+
+{% block javascripts %}
+{% if not run.finished %}
+<script>
+    (function () {
+        const pre = document.getElementById('run-log');
+        const status = document.getElementById('run-status');
+        const url = {{ path('local_update_run_log', {id: run.id})|json_encode|raw }};
+        const tick = async () => {
+            try {
+                const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (response.ok) {
+                    const data = await response.json();
+                    const atBottom = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20;
+                    if (data.log) { pre.textContent = data.log; }
+                    if (atBottom) { pre.scrollTop = pre.scrollHeight; }
+                    if (data.finished) { window.location.reload(); return; }
+                    if (data.status === 'running') { status.textContent = '⏳ En cours'; }
+                    const warning = document.getElementById('pending-warning');
+                    if (warning && data.status === 'pending' && data.waiting > 30) { warning.hidden = false; }
+                }
+            } catch (e) {
+                // L'application peut être indisponible quelques secondes pendant sa propre mise à jour : on réessaie.
+            }
+            setTimeout(tick, 2000);
+        };
+        pre.scrollTop = pre.scrollHeight;
+        setTimeout(tick, 1500);
+    })();
+</script>
+{% endif %}
+{% endblock %}

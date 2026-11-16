@@ -1,0 +1,21 @@
+<div class="table-wrap">
+<table class="table">
+    <thead><tr><th>Date</th><th>Réf.</th><th>Version</th><th>Fichiers</th><th>Durée</th><th>Statut</th><th></th></tr></thead>
+    <tbody>
+    {% for run in runs %}
+        {% set files = run.summary.files ?? null %}
+        <tr>
+            <td class="small nowrap">{{ run.startedAt|date('d/m/Y H:i') }} <span class="muted">{{ run.trigger == 'console' ? '· console' }}</span></td>
+            <td><code>{{ run.ref }}</code></td>
+            <td class="small muted break">{{ run.version ?: '—' }}</td>
+            <td class="small nowrap">{% if files %}<span class="text-success">+{{ files.added }}</span> ~{{ files.modified }} <span class="text-danger">−{{ files.deleted }}</span>{% else %}—{% endif %}</td>
+            <td class="small">{{ run.durationSeconds is not null ? run.durationSeconds ~ ' s' : '' }}</td>
+            <td>{{ include('local_update/_status.html.twig', {status: run.status}) }}</td>
+            <td class="nowrap"><a class="btn btn-sm btn-secondary" href="{{ path('local_update_run_show', {id: run.id}) }}">Journal</a></td>
+        </tr>
+    {% else %}
+        <tr><td colspan="7" class="muted">Aucune mise à jour lancée.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+</div>

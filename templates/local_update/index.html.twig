@@ -1,0 +1,64 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Mises à jour{% endblock %}
+{% block breadcrumbs %}Administration › Mises à jour{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Mises à jour de l'application</h1>
+        <p class="muted">Met à jour <strong>cette installation</strong> de Release Note Manager : téléchargement du code depuis Git (archive zip), copie dans le dossier de l'application en conservant <code>.env.local</code>, <code>var/</code>, <code>vendor/</code>…, puis lancement des commandes (composer, migrations, cache:clear).
+        En ligne de commande : <code>php bin/console app:local-update</code>.</p>
+    </div>
+    <div class="actions"><a class="btn btn-secondary" href="{{ path('local_update_edit') }}">⚙ Paramètres</a></div>
+</div>
+
+{% if running %}
+    <div class="alert alert-warning">⏳ Une mise à jour est en cours : voir l'historique ci-dessous.</div>
+{% endif %}
+
+<div class="grid grid-main-aside">
+    <form method="post" action="{{ path('local_update_run') }}" class="card">
+        <div class="card-header"><h2>Lancer la mise à jour</h2></div>
+        <input type="hidden" name="_token" value="{{ csrf_token('local-update-run') }}">
+        <div class="field">
+            <label for="ref">Branche, tag ou commit</label>
+            <input type="text" id="ref" name="ref" value="{{ settings.ref }}">
+        </div>
+        <label class="check"><input type="checkbox" name="deploy" value="1" id="deploy" checked>
+            <span><strong>Télécharger le zip et le décompresser dans l'application</strong><br>
+            <span class="small muted">Dépôt {{ settings.repository }} · protégés : {{ settings.preservedPathList|join(', ') ?: 'aucun' }}</span></span></label>
+        <fieldset class="field">
+            <legend><strong>Commandes</strong></legend>
+            {% for i, command in commands %}
+                <label class="check"><input type="checkbox" name="commands[]" value="{{ i }}" id="cmd{{ i }}" checked> <code title="{{ command.expanded }}">{{ command.raw }}</code></label>
+            {% else %}
+                <p class="small muted">Aucune commande paramétrée.</p>
+            {% endfor %}
+        </fieldset>
+        <label class="check"><input type="checkbox" name="dry_run" value="1" id="dry_run"> <span>Simulation : lister les fichiers qui changeraient, sans rien écrire ni lancer</span></label>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary"{{ running ? ' disabled' }}>▶ Lancer</button>
+            <span class="small muted">Le journal s'affiche en direct ; l'application peut être indisponible quelques secondes pendant <code>composer install</code> et <code>cache:clear</code>.</span>
+        </div>
+    </form>
+
+    <section class="card">
+        <div class="card-header"><h2>Vérifications</h2></div>
+        <ul class="check-list">
+            {% for check in checks %}
+                <li><span aria-hidden="true">{{ check.ok ? '✔' : '⚠' }}</span> <strong>{{ check.label }}</strong> <span class="sr-only">{{ check.ok ? 'correct' : 'à corriger' }}</span><div class="small break{{ check.ok ? '' : ' text-danger' }}"><code>{{ check.detail }}</code></div></li>
+            {% endfor %}
+            <li><strong>Dernière version déployée</strong>
+                <div class="small"><code>{{ settings.lastVersion ?: '—' }}</code></div>
+                <div class="small muted">{{ settings.deployedFiles is null ? 'Aucun déploiement mémorisé.' : settings.deployedFiles|length ~ ' fichiers déployés' }}</div>
+            </li>
+        </ul>
+    </section>
+</div>
+
+<section class="card">
+    <div class="card-header"><h2>Historique</h2></div>
+    {{ include('local_update/_runs.html.twig', {runs: runs}) }}
+</section>
+{% endblock %}

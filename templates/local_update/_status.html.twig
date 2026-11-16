@@ -1,0 +1,8 @@
+{% import '_components/ui.html.twig' as ui %}
+{% set s = status ?? null %}
+{% if s == 'success' %}{{ ui.badge('✔ Réussie', 'success') }}
+{% elseif s == 'failed' %}{{ ui.badge('✘ En échec', 'danger') }}
+{% elseif s == 'running' %}{{ ui.badge('⏳ En cours', 'warning') }}
+{% elseif s == 'pending' %}{{ ui.badge('En attente', 'muted') }}
+{% elseif s == 'simulated' %}{{ ui.badge('Simulation', 'info') }}
+{% else %}{{ ui.badge('Jamais lancée', 'muted') }}{% endif %}

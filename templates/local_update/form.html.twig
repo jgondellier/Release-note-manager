@@ -1,0 +1,20 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Paramètres des mises à jour{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('local_update_index') }}">Mises à jour</a> › Paramètres{% endblock %}
+
+{% block body %}
+<div class="page-header"><div>
+    <h1>Paramètres de mise à jour</h1>
+    <p class="muted">Le dossier mis à jour est toujours celui de cette installation ; seuls le dépôt d'origine et le déroulement se paramètrent ici.</p>
+</div></div>
+<section class="card narrow">
+    {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+        {{ form_widget(form) }}
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
+            <a class="btn btn-ghost" href="{{ path('local_update_index') }}">Annuler</a>
+        </div>
+    {{ form_end(form) }}
+</section>
+{% endblock %}

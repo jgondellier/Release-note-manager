@@ -419,6 +419,39 @@ Depuis l'éditeur d'une release : **PV de recette** (procès-verbal de tests sys
    déplace la page à la prochaine republication. Republication = mise à jour de la même page. Le PV n'intervient pas
    dans le statut « Publiée » des release notes.
 
+## 16 ter. Mises à jour de l'application
+
+Menu **Administration › Mises à jour** (comme dans WSUse) : met à jour **cette installation** sans `git` :
+
+1. téléchargement de l'archive zip du dépôt (branche, tag ou commit) depuis GitHub, GitLab, Bitbucket ou une URL ;
+2. copie dans le dossier de l'application, **sans toucher** aux fichiers protégés (`.env.local`, `var/`,
+   `vendor/`, `.git/`…) ; seuls les fichiers modifiés sont réécrits, les fichiers retirés du dépôt sont
+   supprimés, et les fichiers remplacés sont sauvegardés dans `var/local-updates/backups` ;
+3. lancement des commandes : `composer install`, `doctrine:migrations:migrate`, `cache:clear` (modifiables
+   dans *Paramètres*).
+
+Le journal s'affiche en direct (processus séparé) et l'historique est conservé. Une **simulation** liste les
+fichiers qui changeraient sans rien écrire ni lancer. En ligne de commande : `php bin/console app:local-update`
+(`--ref=v1.2`, `--dry-run`, `--no-deploy`, `--no-commands`).
+
+**Dépôt privé** : laissez `env:GITHUB_TOKEN` dans le champ *Jeton* des paramètres et ajoutez dans `.env.local` :
+
+```dotenv
+GITHUB_TOKEN=github_pat_xxx          # jeton GitHub, droit « Contents: read » sur le dépôt
+RNM_UPDATE_PHP_BINARY=C:/EasyPHP/eds-binaries/php/php829vs16x64/php.exe   # sous EasyPHP / Apache
+```
+
+L'écran n'est accessible **que depuis le poste lui-même** (127.0.0.1), car il lance des commandes sur ce poste
+(`RNM_UPDATE_ALLOW_REMOTE=1` pour lever la restriction, déconseillé). Autres réglages : variables
+`RNM_UPDATE_*` commentées dans `.env` (proxy, certificat d'entreprise, Composer, délais).
+
+Si le journal reste « En attente » : vérifiez `RNM_UPDATE_PHP_BINARY` et `var/local-updates/worker.log`, ou
+passez `RNM_UPDATE_BACKGROUND=0`. Si Composer échoue depuis Apache faute de dossier utilisateur, ajoutez
+`COMPOSER_HOME=C:/Users/<vous>/AppData/Roaming/Composer` dans les variables d'environnement des paramètres.
+
+Première mise en place (une seule fois, à la main) : `git pull`, `composer install`,
+`php bin/console doctrine:migrations:migrate`, `php bin/console cache:clear` ; ensuite tout passe par l'écran.
+
 ## 17. Tests
 
 ```bash

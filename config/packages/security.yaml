@@ -5,7 +5,9 @@ security:
         admin_provider:
             memory:
                 users:
-                    admin: { roles: ['ROLE_ADMIN'] }
+                    # Empreinte du token comme « mot de passe » : sessions conservées après un cache:clear,
+                    # invalidées si ADMIN_TOKEN change (voir AdminFingerprintEnvVarProcessor).
+                    admin: { password: '%env(admin_fingerprint:ADMIN_TOKEN)%', roles: ['ROLE_ADMIN'] }
 
     firewalls:
         dev:

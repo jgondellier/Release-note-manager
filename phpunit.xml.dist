@@ -24,6 +24,9 @@
         <testsuite name="functional">
             <directory>tests/Functional</directory>
         </testsuite>
+        <testsuite name="local-update">
+            <directory>tests/LocalUpdate</directory>
+        </testsuite>
     </testsuites>
 
     <source>
