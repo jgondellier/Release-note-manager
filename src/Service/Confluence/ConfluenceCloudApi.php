@@ -44,10 +44,10 @@ final class ConfluenceCloudApi implements ConfluenceApiInterface
         return (string) ($space['name'] ?? $spaceKey);
     }
 
-    public function getPage(ExternalConnection $connection, string $pageId): ?ConfluencePage
+    public function getPage(ExternalConnection $connection, string $pageId, bool $withBody = false): ?ConfluencePage
     {
         try {
-            $data = $this->client->get($connection, $this->path($connection, '/api/v2/pages/' . rawurlencode($pageId)));
+            $data = $this->client->get($connection, $this->path($connection, '/api/v2/pages/' . rawurlencode($pageId)), $withBody ? ['body-format' => 'storage'] : []);
         } catch (ExternalApiException $e) {
             if ($e->isNotFound()) {
                 return null;
@@ -146,7 +146,9 @@ final class ConfluenceCloudApi implements ConfluenceApiInterface
             (string) $data['id'],
             (string) ($data['title'] ?? ''),
             (int) ($data['version']['number'] ?? 1),
-            '' !== $webui ? $base . $webui : self::wikiBase($connection) . '/pages/viewpage.action?pageId=' . rawurlencode((string) $data['id'])
+            '' !== $webui ? $base . $webui : self::wikiBase($connection) . '/pages/viewpage.action?pageId=' . rawurlencode((string) $data['id']),
+            isset($data['parentId']) && '' !== (string) $data['parentId'] ? (string) $data['parentId'] : null,
+            isset($data['body']['storage']['value']) ? (string) $data['body']['storage']['value'] : null,
         );
     }
 

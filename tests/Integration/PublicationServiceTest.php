@@ -37,37 +37,51 @@ final class PublicationServiceTest extends DatabaseTestCase
             ->on('GET', '/wiki/api/v2/spaces', static fn () => ['results' => [['id' => '777', 'key' => 'CCS']]])
             ->on('GET', '/wiki/api/v2/pages', fn (array $b, string $u, array $q) => ['results' => $this->findByTitle('cloud', $q['title'])])
             ->on('GET', '/wiki/api/v2/pages/\d+', fn (array $b, string $url) => $this->page('cloud', basename(parse_url($url, PHP_URL_PATH))))
-            ->on('POST', '/wiki/api/v2/pages', fn (array $b) => $this->create('cloud', $b['title'], $b['parentId'] ?? null))
-            ->on('PUT', '/wiki/api/v2/pages/\d+', fn (array $b) => $this->update('cloud', $b['id'], $b['version']['number'], $b['parentId'] ?? null));
+            ->on('POST', '/wiki/api/v2/pages', fn (array $b) => $this->create('cloud', $b['title'], $b['parentId'] ?? null, $b['body']['value'] ?? null))
+            ->on('PUT', '/wiki/api/v2/pages/\d+', fn (array $b) => $this->update('cloud', $b['id'], $b['version']['number'], $b['parentId'] ?? null, $b['body']['value'] ?? null));
         // Confluence Server (v1), éventuellement en panne.
         $this->server
             ->on('GET', '/confluence/rest/api/content', fn (array $b, string $u, array $q) => $this->serverDown ? FakeAtlassianServer::json([], 503) : ['results' => $this->findByTitle('server', $q['title'])])
             ->on('GET', '/confluence/rest/api/content/\d+', fn (array $b, string $url) => $this->page('server', basename(parse_url($url, PHP_URL_PATH))))
-            ->on('POST', '/confluence/rest/api/content', fn (array $b) => $this->serverDown ? FakeAtlassianServer::json([], 503) : $this->create('server', $b['title'], $b['ancestors'][0]['id'] ?? null))
-            ->on('PUT', '/confluence/rest/api/content/\d+', fn (array $b) => $this->update('server', $b['id'], $b['version']['number'], $b['ancestors'][0]['id'] ?? null));
+            ->on('POST', '/confluence/rest/api/content', fn (array $b) => $this->serverDown ? FakeAtlassianServer::json([], 503) : $this->create('server', $b['title'], $b['ancestors'][0]['id'] ?? null, $b['body']['storage']['value'] ?? null))
+            ->on('PUT', '/confluence/rest/api/content/\d+', fn (array $b) => $this->update('server', $b['id'], $b['version']['number'], $b['ancestors'][0]['id'] ?? null, $b['body']['storage']['value'] ?? null));
 
         return $release;
     }
 
     private function findByTitle(string $instance, string $title): array
     {
-        return array_values(array_filter($this->stores[$instance], static fn ($p) => $p['title'] === $title));
+        return array_values(array_map(fn ($p) => $this->api($instance, $p), array_filter($this->stores[$instance], static fn ($p) => $p['title'] === $title)));
     }
 
     private function page(string $instance, string $id): mixed
     {
-        return isset($this->stores[$instance][$id]) ? $this->stores[$instance][$id] + ['status' => 'current', '_links' => ['webui' => '/p/' . $id]] : FakeAtlassianServer::json([], 404);
+        return isset($this->stores[$instance][$id]) ? $this->api($instance, $this->stores[$instance][$id]) + ['status' => 'current'] : FakeAtlassianServer::json([], 404);
     }
 
-    private function create(string $instance, string $title, ?string $parentId = null): array
+    /** Représentation API : parentId + corps (Cloud v2), ancestors + body.storage (Server v1). */
+    private function api(string $instance, array $page): array
+    {
+        $data = $page + ['_links' => ['webui' => '/p/' . $page['id']]];
+        $body = $page['body'] ?? '';
+        if ('server' === $instance) {
+            $data['ancestors'] = null !== ($page['parentId'] ?? null) ? [['id' => '1'], ['id' => $page['parentId']]] : [];
+            unset($data['parentId']);
+        }
+        $data['body'] = ['storage' => ['value' => $body, 'representation' => 'storage']];
+
+        return $data;
+    }
+
+    private function create(string $instance, string $title, ?string $parentId = null, ?string $body = null): array
     {
         $id = (string) $this->nextId++;
-        $this->stores[$instance][$id] = ['id' => $id, 'title' => $title, 'version' => ['number' => 1], 'parentId' => $parentId];
+        $this->stores[$instance][$id] = ['id' => $id, 'title' => $title, 'version' => ['number' => 1], 'parentId' => $parentId, 'body' => (string) $body];
 
-        return $this->stores[$instance][$id] + ['_links' => ['webui' => '/p/' . $id]];
+        return $this->api($instance, $this->stores[$instance][$id]);
     }
 
-    private function update(string $instance, string $id, int $version, ?string $parentId = null): mixed
+    private function update(string $instance, string $id, int $version, ?string $parentId = null, ?string $body = null): mixed
     {
         if ($version !== $this->stores[$instance][$id]['version']['number'] + 1) {
             return FakeAtlassianServer::json(['message' => 'version'], 409);
@@ -76,8 +90,11 @@ final class PublicationServiceTest extends DatabaseTestCase
         if (null !== $parentId) {
             $this->stores[$instance][$id]['parentId'] = $parentId;
         }
+        if (null !== $body) {
+            $this->stores[$instance][$id]['body'] = $body;
+        }
 
-        return $this->stores[$instance][$id] + ['_links' => ['webui' => '/p/' . $id]];
+        return $this->api($instance, $this->stores[$instance][$id]);
     }
 
     /** @return array<string, mixed> */
@@ -229,5 +246,33 @@ final class PublicationServiceTest extends DatabaseTestCase
         $year2027 = $this->pageByTitle('cloud', 'CCS — 2027');
         self::assertSame($year2027['id'], $this->stores['cloud'][$container['id']]['parentId']);
         self::assertSame(1, \count($this->findByTitle('cloud', 'CCS 2.4.0 — Release notes')), 'Déplacée, pas dupliquée');
+    }
+
+    public function testChangingProjectParentPageMovesYearPageAndItsTreeOnRepublish(): void
+    {
+        $release = $this->prepare();
+        $service = $this->service(PublicationService::class);
+        $service->publish($release, $this->allTargets());
+        $before = $this->pageCount();
+        // Page d'année enrichie à la main dans Confluence.
+        $year = $this->pageByTitle('server', 'CCS — 2026');
+        $this->stores['server'][$year['id']]['body'] = '<p>Planning 2026 ajouté à la main</p>';
+
+        // Nouvel emplacement : page parente du projet modifiée (Cloud : racine → 900 ; Server : 555 → 901).
+        $release->getProject()->setConfluenceCloudParentPageId('900')->setConfluenceServerParentPageId('901');
+        $this->em->flush();
+        $outcomes = $service->publish($release, $this->allTargets());
+
+        self::assertSame(array_fill(0, 6, PublicationOutcome::SUCCESS), array_map(static fn ($o) => $o->status, $outcomes));
+        self::assertSame($before, $this->pageCount(), 'Aucune page recréée');
+        foreach (['cloud' => '900', 'server' => '901'] as $instance => $parent) {
+            $year = $this->pageByTitle($instance, 'CCS — 2026');
+            self::assertSame($parent, $year['parentId'], 'Page d\'année déplacée sous la nouvelle page parente (' . $instance . ')');
+            self::assertSame($year['id'], $this->pageByTitle($instance, '— Release notes')['parentId'], 'Arborescence conservée sous la page d\'année');
+        }
+        self::assertSame('<p>Planning 2026 ajouté à la main</p>', $this->pageByTitle('server', 'CCS — 2026')['body'], 'Contenu de la page d\'année conservé');
+
+        $service->publish($release, ['it:server']);
+        self::assertSame(2, $this->pageByTitle('server', 'CCS — 2026')['version']['number'], 'Déjà au bon endroit : plus de modification');
     }
 }

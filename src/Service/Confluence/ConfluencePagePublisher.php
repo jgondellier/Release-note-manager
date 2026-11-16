@@ -56,14 +56,21 @@ class ConfluencePagePublisher
     }
 
     /**
-     * Page de classement (ex. page d'année) : réutilisée telle quelle si une page de ce titre existe déjà
-     * dans l'espace (contenu et emplacement laissés intacts), créée sous $parentId sinon.
+     * Page de classement (ex. page d'année) : si une page de ce titre existe déjà dans l'espace, son contenu
+     * est conservé ; elle est seulement déplacée sous $parentId si elle est ailleurs (page parente du projet
+     * modifiée), ses sous-pages suivant. Créée sous $parentId sinon.
      */
     public function ensurePage(ExternalConnection $connection, string $spaceKey, ?string $parentId, string $title, string $storage): PagePublishResult
     {
         $api = $this->resolver->for($connection);
         if (null !== $page = $api->findPageByTitle($connection, $spaceKey, $title)) {
-            return new PagePublishResult($page, PagePublishResult::UNCHANGED);
+            if (null === $parentId || $page->parentId === $parentId) {
+                return new PagePublishResult($page, PagePublishResult::UNCHANGED);
+            }
+            // Déplacement en conservant le contenu actuel (éventuellement enrichi à la main).
+            $full = $api->getPage($connection, $page->id, true) ?? $page;
+
+            return new PagePublishResult($this->update($connection, $api, $full, $title, $full->storage ?? $storage, $parentId), PagePublishResult::MOVED);
         }
         try {
             return new PagePublishResult($api->createPage($connection, $spaceKey, $parentId, $title, $storage), PagePublishResult::CREATED);

@@ -340,8 +340,11 @@ Page parente dédiée aux PV (facultative)
 - **Année** : date de MEP de la release, à défaut date de livraison de la version Jira, à défaut date de
   création de la release. Pour un PV sous la page parente dédiée : date de MEP du PV.
 - **Page d'année** : titre `<Projet> — <Année>` (`<Projet> — PV de recette <Année>` sous la page dédiée aux PV),
-  unique dans l'espace. Une page de ce titre déjà présente est réutilisée **telle quelle** (contenu et
-  emplacement non modifiés, vous pouvez l'enrichir) ; sinon elle est créée.
+  unique dans l'espace. Une page de ce titre déjà présente est réutilisée avec **son contenu** (vous pouvez
+  l'enrichir) ; sinon elle est créée.
+- **Changement de page parente** (*Projets › Modifier*) : à la prochaine publication d'une release, sa page
+  d'année est **déplacée** sous la nouvelle page parente, avec toutes ses sous-pages (versions, release notes,
+  PV) et sans modifier son contenu. Republiez une release par année concernée.
 - Les pages publiées avant ce classement, ou dont l'année de MEP change, sont **déplacées** sous la bonne page
   d'année à leur prochaine publication (aucun doublon).
 
@@ -730,8 +733,8 @@ Correspondance avec le cahier des charges :
 
 - Les pages Confluence modifiées à la main sont **écrasées** à la republication (un avertissement figure en
   pied de page publiée).
-- Si la page parente du projet change, une page d'année déjà existante n'est pas déplacée (elle est retrouvée
-  par son titre) : déplacez-la à la main dans Confluence si besoin.
+- Après un changement de page parente, seules les pages d'année des releases republiées sont déplacées : les
+  années sans republication restent à l'ancien emplacement.
 - La publication est synchrone (6 cibles maximum, délais bornés par `APP_HTTP_MAX_DURATION`) ; pas de file
   d'attente asynchrone.
 - Verrous de publication sur fichiers locaux (`var/lock`) : adaptés à un seul serveur web ; en

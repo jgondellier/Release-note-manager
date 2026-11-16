@@ -49,10 +49,10 @@ final class ConfluenceServerApi implements ConfluenceApiInterface
         return (string) ($space['name'] ?? $spaceKey);
     }
 
-    public function getPage(ExternalConnection $connection, string $pageId): ?ConfluencePage
+    public function getPage(ExternalConnection $connection, string $pageId, bool $withBody = false): ?ConfluencePage
     {
         try {
-            $data = $this->client->get($connection, '/rest/api/content/' . rawurlencode($pageId), ['expand' => 'version,space']);
+            $data = $this->client->get($connection, '/rest/api/content/' . rawurlencode($pageId), ['expand' => 'version,space,ancestors' . ($withBody ? ',body.storage' : '')]);
         } catch (ExternalApiException $e) {
             if ($e->isNotFound()) {
                 return null;
@@ -72,7 +72,7 @@ final class ConfluenceServerApi implements ConfluenceApiInterface
             'spaceKey' => $spaceKey,
             'title' => $title,
             'type' => 'page',
-            'expand' => 'version',
+            'expand' => 'version,ancestors',
             'limit' => 5,
         ]);
         foreach ((array) ($data['results'] ?? []) as $result) {
@@ -130,7 +130,22 @@ final class ConfluenceServerApi implements ConfluenceApiInterface
             (string) $data['id'],
             (string) ($data['title'] ?? ''),
             (int) ($data['version']['number'] ?? 1),
-            '' !== $webui ? $base . $webui : $connection->getBaseUrl() . '/pages/viewpage.action?pageId=' . rawurlencode((string) $data['id'])
+            '' !== $webui ? $base . $webui : $connection->getBaseUrl() . '/pages/viewpage.action?pageId=' . rawurlencode((string) $data['id']),
+            self::parentId($data),
+            isset($data['body']['storage']['value']) ? (string) $data['body']['storage']['value'] : null,
         );
+    }
+
+    /**
+     * Parent direct = dernier élément de « ancestors » (null : racine de l'espace, ou ancêtres non demandés).
+     *
+     * @param array<mixed> $data
+     */
+    private static function parentId(array $data): ?string
+    {
+        $ancestors = \is_array($data['ancestors'] ?? null) ? array_values($data['ancestors']) : [];
+        $last = [] === $ancestors ? null : $ancestors[\count($ancestors) - 1];
+
+        return \is_array($last) && isset($last['id']) ? (string) $last['id'] : null;
     }
 }

@@ -10,6 +10,8 @@ final class PagePublishResult
     public const UPDATED = 'updated';
     /** Page existante réutilisée sans modification. */
     public const UNCHANGED = 'unchanged';
+    /** Page existante déplacée sous un autre parent (contenu conservé). */
+    public const MOVED = 'moved';
 
     public function __construct(
         public readonly ConfluencePage $page,

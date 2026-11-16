@@ -270,7 +270,7 @@ class PublicationService
      */
     private function ensureYearPage(Release $release, PublicationTargetRow $row, ExternalConnection $connection): string
     {
-        $key = $row->target->value . '|' . $row->spaceKey . '|' . $row->yearPageTitle;
+        $key = $row->target->value . '|' . $row->spaceKey . '|' . $row->parentPageId . '|' . $row->yearPageTitle;
         if (isset($this->yearPages[$key])) {
             return $this->yearPages[$key];
         }
@@ -284,8 +284,8 @@ class PublicationService
                 $row->yearPageTitle,
                 $this->renderer->renderYearStorage($release, $row->year, !$row->useContainer)
             );
-            if (PagePublishResult::CREATED === $result->action) {
-                $this->publicationLogger->info('Page d\'année créée', $this->context($release, $row) + ['page_id' => $result->page->id]);
+            if (PagePublishResult::UNCHANGED !== $result->action) {
+                $this->publicationLogger->info(PagePublishResult::MOVED === $result->action ? 'Page d\'année déplacée' : 'Page d\'année créée', $this->context($release, $row) + ['page_id' => $result->page->id, 'parent_id' => $row->parentPageId]);
             }
 
             return $this->yearPages[$key] = $result->page->id;

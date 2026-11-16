@@ -24,8 +24,12 @@ interface ConfluenceApiInterface
     /** @return string nom de l'espace ; ExternalApiException NOT_FOUND s'il n'existe pas */
     public function checkSpace(ExternalConnection $connection, string $spaceKey): string;
 
-    /** @return ConfluencePage|null null si la page n'existe plus (404) */
-    public function getPage(ExternalConnection $connection, string $pageId): ?ConfluencePage;
+    /**
+     * @param bool $withBody inclut le contenu (format de stockage) dans la page renvoyée
+     *
+     * @return ConfluencePage|null null si la page n'existe plus (404)
+     */
+    public function getPage(ExternalConnection $connection, string $pageId, bool $withBody = false): ?ConfluencePage;
 
     public function findPageByTitle(ExternalConnection $connection, string $spaceKey, string $title): ?ConfluencePage;
 
