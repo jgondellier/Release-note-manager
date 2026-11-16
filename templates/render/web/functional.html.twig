@@ -1,6 +1,7 @@
 {% import 'render/web/_macros.html.twig' as m %}
 {% set groups = doc.sectionsByCategory %}
 {% set titles = {feature: 'Évolutions fonctionnelles', fix: 'Corrections', other: 'Autres changements', technical: 'Changements techniques'} %}
+{% set singular = {feature: 'Évolution fonctionnelle', fix: 'Correction', other: 'Autre changement', technical: 'Changement technique'} %}
 <article class="rn-doc rn-format-functional">
     <header class="rn-hero">
         <div class="rn-kicker">Release note fonctionnelle · {{ doc.project.name }}</div>
@@ -13,9 +14,10 @@
 
     {% if doc.intro %}<section class="rn-intro">{{ doc.intro|rn_text }}</section>{% endif %}
 
+    {# Compteurs = tickets de la version (selon leur type), et non nombre de sections. #}
     <section class="rn-summary">
         {% for key in ['feature', 'fix', 'other', 'technical'] %}
-            {% if groups[key] is defined %}<div class="rn-summary-item rn-cat-{{ key }}"><strong>{{ groups[key]|length }}</strong> {{ titles[key]|lower }}</div>{% endif %}
+            {% if doc.categoryStats[key] ?? 0 %}<div class="rn-summary-item rn-cat-{{ key }}"><strong>{{ doc.categoryStats[key] }}</strong> {{ (doc.categoryStats[key] > 1 ? titles[key] : singular[key])|lower }}</div>{% endif %}
         {% endfor %}
     </section>
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Twig;
 
 use App\Service\Jira\OctaneCoverageService;
+use App\Service\ReleaseNote\Design\CommunicationTheme;
 use App\Service\ReleaseNote\LinkListParser;
 use App\Service\ReleaseNote\TextFormatter;
 use Twig\Extension\AbstractExtension;
@@ -32,6 +33,9 @@ final class AppExtension extends AbstractExtension
     {
         return [
             new TwigFunction('rn_links', $this->linkParser->parse(...)),
+            // Charte graphique du format Communication (jetons partagés web / Confluence).
+            new TwigFunction('rn_theme', CommunicationTheme::tokens(...)),
+            new TwigFunction('rn_theme_css', CommunicationTheme::cssVariables(...)),
             // {% do rn_ticket_links(release) %} : numéros de ticket des textes de la page liés vers Jira.
             new TwigFunction('rn_ticket_links', $this->formatter->linkTicketsOf(...)),
             // Couverture Octane : code couleur d'une fiche et lignes du résumé.

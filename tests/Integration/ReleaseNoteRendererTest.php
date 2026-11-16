@@ -61,4 +61,56 @@ final class ReleaseNoteRendererTest extends DatabaseTestCase
         self::assertStringContainsString('ac:name="status"', $renderer->renderStorage($release, PublicationFormat::It));
         self::assertSame('CCS 2.4.0 — Release note IT', $renderer->pageTitle($release, PublicationFormat::It));
     }
+
+    public function testFunctionalSummaryCountsTicketsByTheirOwnTypeNotSections(): void
+    {
+        $project = $this->createProject();
+        $epic = JiraFixtures::parent('CCS-1', 'Recherche');
+        $issues = [
+            JiraFixtures::issue('CCS-1', 'Epic', 'Recherche', [], '10042', true),
+            JiraFixtures::issue('CCS-2', 'Story', 'Filtrer', ['parent' => $epic]),
+            JiraFixtures::issue('CCS-3', 'Story', 'Exporter', ['parent' => $epic]),
+            JiraFixtures::issue('CCS-4', 'Bug', 'Bug de la recherche', ['parent' => $epic]),
+            JiraFixtures::issue('CCS-5', 'Bug', 'Date erronée'),
+            JiraFixtures::issue('CCS-6', 'Bug', 'Libellé faux'),
+        ];
+        $this->fakeJiraCloud($issues);
+        $release = $this->service(ReleaseImportService::class)->import($project, '10042');
+        // 2 sections (1 Epic « évolution » + 1 « Corrections ») mais 2 stories et 3 bugs.
+        self::assertCount(2, $release->getSections());
+
+        $renderer = $this->service(ReleaseNoteRenderer::class);
+        $web = $renderer->renderWeb($release, PublicationFormat::Functional);
+        self::assertStringContainsString('<strong>2</strong> évolutions fonctionnelles', $web);
+        self::assertStringContainsString('<strong>3</strong> corrections', $web, 'Le bug rattaché à l\'Epic compte comme correction');
+        $storage = $renderer->renderStorage($release, PublicationFormat::Functional);
+        self::assertStringContainsString('<ac:parameter ac:name="title">2 évolutions fonctionnelles</ac:parameter>', $storage);
+        self::assertStringContainsString('<ac:parameter ac:name="title">3 corrections</ac:parameter>', $storage);
+    }
+
+    public function testCommunicationUsesTheSharedDesignTokens(): void
+    {
+        $project = $this->createProject();
+        $issues = [JiraFixtures::issue('CCS-2', 'Story', 'Filtrer'), JiraFixtures::issue('CCS-5', 'Bug', 'Date erronée')];
+        $this->fakeJiraCloud($issues);
+        $release = $this->service(ReleaseImportService::class)->import($project, '10042');
+        foreach ($release->getSections() as $section) {
+            $section->setCommunicationContent('Texte ' . $section->getTitle())->setImpact('Gain de temps');
+        }
+        $this->em->flush();
+
+        $renderer = $this->service(ReleaseNoteRenderer::class);
+        $web = $renderer->renderWeb($release, PublicationFormat::Communication);
+        self::assertStringContainsString('--ds-primary: ' . \App\Service\ReleaseNote\Design\CommunicationTheme::BRAND['primary'], $web, 'Jetons posés sur la racine');
+        self::assertStringContainsString('class="ds-tag ds-tag-feature"', $web);
+        self::assertStringContainsString('Ce qui change pour vous', $web);
+        self::assertMatchesRegularExpression('#<span class="ds-kpi-value">1</span><span class="ds-kpi-label">nouveauté à découvrir#', $web);
+
+        $storage = $renderer->renderStorage($release, PublicationFormat::Communication);
+        $renderer->assertWellFormed($storage);
+        $feature = \App\Service\ReleaseNote\Design\CommunicationTheme::CATEGORIES['feature'];
+        self::assertStringContainsString('<ac:parameter ac:name="borderColor">' . $feature['accent'] . '</ac:parameter>', $storage, 'Même couleur de catégorie que le web');
+        self::assertStringContainsString('<ac:parameter ac:name="titleBGColor">' . \App\Service\ReleaseNote\Design\CommunicationTheme::BRAND['primaryStrong'] . '</ac:parameter>', $storage);
+        self::assertStringNotContainsString('class="', $storage);
+    }
 }

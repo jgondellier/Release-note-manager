@@ -23,8 +23,10 @@ use App\Service\ReleaseNote\Dto\SectionView;
  */
 final class ReleaseNoteViewBuilder
 {
-    public function __construct(private readonly LinkListParser $linkParser)
-    {
+    public function __construct(
+        private readonly LinkListParser $linkParser,
+        private readonly IssueTypeMappingResolver $mappingResolver,
+    ) {
     }
 
     public function build(Release $release, PublicationFormat $format): ReleaseNoteView
@@ -40,8 +42,10 @@ final class ReleaseNoteViewBuilder
         $actions = [];
         $warnings = [];
         $typeStats = [];
+        $categoryStats = [];
         $components = [];
         $ticketCount = 0;
+        $rules = $this->mappingResolver->forProject($project);
 
         foreach ($sections as $section) {
             if (!$section->isVisibleIn($format)) {
@@ -87,6 +91,12 @@ final class ReleaseNoteViewBuilder
             foreach ($tickets as $ticket) {
                 ++$ticketCount;
                 $typeStats[$ticket->getIssueType()] = ($typeStats[$ticket->getIssueType()] ?? 0) + 1;
+                // Compteurs par catégorie : chaque ticket selon son propre type (pas la catégorie de sa section) ;
+                // le ticket Epic lui-même n'est pas une évolution supplémentaire.
+                if ($ticket->getEpicKey() !== $ticket->getJiraKey()) {
+                    $category = $rules->match($ticket->getIssueType())->category->value;
+                    $categoryStats[$category] = ($categoryStats[$category] ?? 0) + 1;
+                }
                 foreach ($ticket->getComponents() as $component) {
                     $components[$component] = true;
                 }
@@ -115,6 +125,7 @@ final class ReleaseNoteViewBuilder
             links: $this->linkParser->parse($release->getUsefulLinks()),
             actions: $actions,
             typeStats: $typeStats,
+            categoryStats: $categoryStats,
             components: $componentList,
             ticketCount: $ticketCount,
             jiraVersionUrl: $this->jiraVersionUrl($release),

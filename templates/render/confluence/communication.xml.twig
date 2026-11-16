@@ -1,34 +1,42 @@
 {% import 'render/confluence/_macros.xml.twig' as c %}
+{# Charte : mêmes jetons que l'aperçu web (CommunicationTheme), traduits en macros natives Confluence. #}
+{% set theme = rn_theme() %}
+{% set brand = theme.brand %}
 {% set highlights = doc.sections|filter(s => s.category.value != 'fix') %}
 {% set fixes = doc.sections|filter(s => s.category.value == 'fix') %}
+{% set available = doc.release.releaseDate and doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') %}
 {% set hero %}
-{% if doc.intro %}{{ doc.intro|rn_text }}{% endif %}<p><strong>Version {{ doc.release.jiraVersionName }}</strong></p>
-{% if doc.release.releaseDate %}{% set available = doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') %}<p>{{ c.status((available ? 'Disponible depuis le ' : 'Prévue le ') ~ doc.release.releaseDate|date('d/m/Y'), available ? 'Green' : 'Blue') }}</p>{% endif %}
+<p><strong>{{ doc.project.name }}</strong> · Version {{ doc.release.jiraVersionName }}{% if doc.release.releaseDate %} · {{ c.status((available ? 'Disponible depuis le ' : 'Prévue le ') ~ doc.release.releaseDate|date('d/m/Y'), available ? 'Green' : 'Blue') }}{% endif %}</p>
+{% if doc.intro %}{{ doc.intro|rn_text }}{% endif %}
+{% if highlights is not empty or fixes is not empty %}<p>{% if highlights is not empty %}{{ c.status(highlights|length ~ (highlights|length > 1 ? ' nouveautés' : ' nouveauté'), theme.categories.feature.status) }} {% endif %}{% if fixes is not empty %}{{ c.status(fixes|length ~ (fixes|length > 1 ? ' corrections' : ' correction'), theme.categories.fix.status) }} {% endif %}{% if doc.actions is not empty %}{{ c.status(doc.actions|length ~ (doc.actions|length > 1 ? ' actions à prévoir' : ' action à prévoir'), 'Yellow') }}{% endif %}</p>{% endif %}
 {% endset %}
-{{ c.panel(doc.title, hero, '#FFF7E6', '#F5A623') }}
+{{ c.card('Nouveautés — ' ~ doc.title, hero, brand.primary, brand.primarySoft, '#FFFFFF', brand.primaryStrong) }}
 {% if highlights is not empty %}
 <h2>Les nouveautés</h2>
 {% for s in highlights %}
+{% set cat = theme.categories[s.category.value] %}
 {% set card %}
+<p>{{ c.status(cat.label, cat.status) }}</p>
 {% if s.content %}{{ s.content|rn_text }}{% endif %}
-{% if s.section.impact %}<p><strong>Ce qui change pour vous</strong></p>{{ s.section.impact|rn_text }}{% endif %}
+{% if s.section.impact %}{{ c.panel('Ce qui change pour vous', s.section.impact|rn_text, brand.primarySoft, brand.primarySoft) }}{% endif %}
 {{ c.links(s.links, 'En savoir plus') }}
 {% endset %}
-{{ c.panel(s.category.icon ~ ' ' ~ s.title, card, '#FFFFFF', '#DFE1E6') }}
+{{ c.card(cat.icon ~ '  ' ~ s.title, card, cat.accent) }}
 {% endfor %}
 {% endif %}
 {% if fixes is not empty %}
 <h2>Corrections</h2>
-<ul>{% for s in fixes %}<li><strong>{{ s.title }}</strong>{% if s.content %}{{ s.content|rn_text }}{% endif %}</li>{% endfor %}</ul>
+{% set list %}<ul>{% for s in fixes %}<li><strong>{{ s.title }}</strong>{% if s.content %}{{ s.content|rn_text }}{% endif %}</li>{% endfor %}</ul>{% endset %}
+{{ c.card(theme.categories.fix.icon ~ '  ' ~ (fixes|length > 1 ? fixes|length ~ ' corrections' : '1 correction'), list, theme.categories.fix.accent, '#FFFFFF', theme.categories.fix.accent, theme.categories.fix.soft) }}
 {% endif %}
 {% if doc.pendingSections is not empty %}
-{% set pending %}<p>Les éléments suivants font partie de cette version mais leur mise à disposition reste à confirmer :</p><ul>{% for s in doc.pendingSections %}<li>{{ s.title }}</li>{% endfor %}</ul>{% endset %}
-{{ c.callout('info', 'En cours de finalisation', pending) }}
+{% set pending %}<p>Ces éléments font partie de cette version ; leur mise à disposition reste à confirmer :</p><ul>{% for s in doc.pendingSections %}<li>{{ s.title }}</li>{% endfor %}</ul>{% endset %}
+{{ c.card('◷  En cours de finalisation', pending, theme.states.pending.accent, theme.states.pending.soft, theme.states.pending.accent, theme.states.pending.soft) }}
 {% endif %}
 {% if doc.sections is empty and doc.pendingSections is empty %}<p><em>Aucune section n'est visible dans ce format.</em></p>{% endif %}
 {% if doc.actions is not empty %}
-{% set actions %}<ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>{% endset %}
-{{ c.callout('note', 'Ce que vous devez faire', actions) }}
+{% set actions %}<ol>{% for a in doc.actions %}<li><strong>{{ a.title }}</strong> — {{ a.text|rn_inline }}</li>{% endfor %}</ol>{% endset %}
+{{ c.card('!  Ce que vous devez faire', actions, theme.states.action.accent, theme.states.action.soft) }}
 {% endif %}
-{{ c.links(doc.links) }}
+{% if doc.links is not empty %}<h2>Pour aller plus loin</h2>{{ c.links(doc.links, '') }}{% endif %}
 {{ c.footer(doc) }}

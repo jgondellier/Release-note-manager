@@ -306,6 +306,18 @@ Syntaxe des champs de texte : ligne vide = paragraphe, `- ` = puce, `1. ` = list
 commentaires de test du PV, « liée à … ») pour les préfixes connus de la release : clé du projet Jira et projets
 des tickets, Epics et anomalies importés — « UTF-8 » ou « ISO-9001 » ne deviennent pas des liens.
 
+### Charte graphique (format Communication)
+
+Le format **Communication** suit un petit design system : jetons de couleur (marque, neutres, catégories,
+états), échelles d'espacement et de rayon, composants (bandeau, synthèse chiffrée, cartes par catégorie,
+« Ce qui change pour vous », corrections, encadrés « en cours » et « à faire »). Les jetons sont définis **à un
+seul endroit**, `src/Service/ReleaseNote/Design/CommunicationTheme.php`, et servent à la fois à l'aperçu web
+(variables CSS `--ds-*`) et à la page Confluence (couleurs des macros panel et status). Pour appliquer la charte
+de l'entreprise, modifiez les valeurs de ce fichier (contrastes WCAG AA ≥ 4,5:1 à conserver).
+
+Compteurs du format **Fonctionnel** : nombre de **tickets** par catégorie, chacun selon son propre type
+(*Types de tickets*), et non nombre de sections (le ticket Epic lui-même n'est pas compté).
+
 ## 16. Publication et republication
 
 1. **Publier…** : matrice des 6 cibles (3 formats × 2 instances). Les cibles non configurées ou

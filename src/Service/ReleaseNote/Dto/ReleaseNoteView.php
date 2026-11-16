@@ -19,6 +19,7 @@ final class ReleaseNoteView
      * @param list<array{label: string, url: string}> $links
      * @param list<array{title: string, text: string}> $actions
      * @param array<string, int>                      $typeStats
+     * @param array<string, int>                      $categoryStats nombre de tickets par catégorie (feature, fix…), selon le type de chaque ticket
      * @param list<string>                            $components
      * @param list<string>                            $warnings    avertissements éditoriaux (affichés dans l'éditeur uniquement)
      */
@@ -33,6 +34,7 @@ final class ReleaseNoteView
         public readonly array $links,
         public readonly array $actions,
         public readonly array $typeStats,
+        public readonly array $categoryStats,
         public readonly array $components,
         public readonly int $ticketCount,
         public readonly ?string $jiraVersionUrl,

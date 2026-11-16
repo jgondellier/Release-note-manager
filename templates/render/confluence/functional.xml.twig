@@ -1,9 +1,10 @@
 {% import 'render/confluence/_macros.xml.twig' as c %}
 {% set groups = doc.sectionsByCategory %}
 {% set titles = {feature: 'Évolutions fonctionnelles', fix: 'Corrections', other: 'Autres changements', technical: 'Changements techniques'} %}
+{% set singular = {feature: 'Évolution fonctionnelle', fix: 'Correction', other: 'Autre changement', technical: 'Changement technique'} %}
 {% set meta %}
 <p><strong>Version :</strong> {{ doc.release.jiraVersionName }}{% if doc.release.releaseDate %} · <strong>Mise en production :</strong> {{ doc.release.releaseDate|date('d/m/Y') }}{% endif %}</p>
-<p>{% for key in ['feature', 'fix', 'other', 'technical'] %}{% if groups[key] is defined %}{{ c.status(groups[key]|length ~ ' ' ~ titles[key]|lower, key == 'feature' ? 'Blue' : (key == 'fix' ? 'Red' : 'Grey')) }} {% endif %}{% endfor %}</p>
+<p>{% for key in ['feature', 'fix', 'other', 'technical'] %}{% if doc.categoryStats[key] ?? 0 %}{{ c.status(doc.categoryStats[key] ~ ' ' ~ (doc.categoryStats[key] > 1 ? titles[key] : singular[key])|lower, key == 'feature' ? 'Blue' : (key == 'fix' ? 'Red' : 'Grey')) }} {% endif %}{% endfor %}</p>
 {% endset %}
 {{ c.panel('Release note fonctionnelle — ' ~ doc.project.name, meta, '#EEF7F1', '#1F845A') }}
 {% if doc.intro %}{{ doc.intro|rn_text }}{% endif %}

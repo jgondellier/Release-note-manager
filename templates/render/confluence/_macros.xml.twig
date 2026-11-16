@@ -15,6 +15,11 @@
 <ac:structured-macro ac:name="panel">{% if title %}<ac:parameter ac:name="title">{{ title }}</ac:parameter>{% endif %}<ac:parameter ac:name="bgColor">{{ bg }}</ac:parameter><ac:parameter ac:name="borderColor">{{ border }}</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:rich-text-body>{{ body|raw }}</ac:rich-text-body></ac:structured-macro>
 {%- endmacro %}
 
+{# Panneau avec bandeau de titre coloré (paramètres natifs du macro panel, Cloud et Server/DC). #}
+{% macro card(title, body, accent, bg = '#FFFFFF', titleColor = '#FFFFFF', titleBg = null) -%}
+<ac:structured-macro ac:name="panel"><ac:parameter ac:name="title">{{ title }}</ac:parameter><ac:parameter ac:name="titleBGColor">{{ titleBg ?? accent }}</ac:parameter><ac:parameter ac:name="titleColor">{{ titleColor }}</ac:parameter><ac:parameter ac:name="bgColor">{{ bg }}</ac:parameter><ac:parameter ac:name="borderColor">{{ accent }}</ac:parameter><ac:parameter ac:name="borderStyle">solid</ac:parameter><ac:rich-text-body>{{ body|raw }}</ac:rich-text-body></ac:structured-macro>
+{%- endmacro %}
+
 {% macro toc() -%}
 <ac:structured-macro ac:name="toc"><ac:parameter ac:name="maxLevel">2</ac:parameter><ac:parameter ac:name="minLevel">2</ac:parameter></ac:structured-macro>
 {%- endmacro %}
@@ -28,7 +33,7 @@
 {%- endmacro %}
 
 {% macro links(links, title = 'Liens utiles') -%}
-{% if links is not empty %}<p><strong>{{ title }}</strong></p><ul>{% for l in links %}<li><a href="{{ l.url }}">{{ l.label }}</a></li>{% endfor %}</ul>{% endif %}
+{% if links is not empty %}{% if title %}<p><strong>{{ title }}</strong></p>{% endif %}<ul>{% for l in links %}<li><a href="{{ l.url }}">{{ l.label }}</a></li>{% endfor %}</ul>{% endif %}
 {%- endmacro %}
 
 {% macro footer(doc) -%}

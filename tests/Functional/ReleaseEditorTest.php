@@ -110,9 +110,9 @@ final class ReleaseEditorTest extends WebTestCaseBase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('.preview-frame', 'par statut');
         $this->client->request('GET', '/releases/' . $release->getId() . '/preview/communication');
-        self::assertSelectorTextContains('.rn-cards', 'Merci pour vos retours');
+        self::assertSelectorTextContains('.ds-grid', 'Merci pour vos retours');
         // CCS-4 (terminé) + CCS-1/CCS-2 terminés : section d'Epic livrée, présentée comme nouveauté.
-        self::assertSelectorTextContains('.rn-cards', 'Gagnez du temps');
+        self::assertSelectorTextContains('.ds-grid', 'Gagnez du temps');
         $this->client->request('GET', '/releases/' . $release->getId() . '/preview/it/storage');
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('#storage-source', 'ac:structured-macro');

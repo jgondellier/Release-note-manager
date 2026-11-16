@@ -1,47 +1,68 @@
 {% import 'render/web/_macros.html.twig' as m %}
+{#
+    Release note « Communication » : charte graphique issue de App\Service\ReleaseNote\Design\CommunicationTheme
+    (jetons --ds-* posés sur la racine). Composants : hero, synthèse, cartes nouveautés, corrections,
+    éléments en cours, actions.
+#}
+{% set theme = rn_theme() %}
 {% set highlights = doc.sections|filter(s => s.category.value != 'fix') %}
 {% set fixes = doc.sections|filter(s => s.category.value == 'fix') %}
-<article class="rn-doc rn-format-communication">
-    <header class="rn-hero rn-hero-com">
-        <div class="rn-kicker">{{ doc.project.name }} · Nouveautés</div>
-        <h1>{{ doc.title }}</h1>
-        {% if doc.release.releaseDate %}<p class="rn-hero-date">{{ doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') ? 'Disponible depuis le' : 'Mise à disposition prévue le' }} {{ doc.release.releaseDate|date('d/m/Y') }}</p>{% endif %}
+{% set available = doc.release.releaseDate and doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') %}
+<article class="rn-doc rn-format-communication ds-com" style="{{ rn_theme_css() }}">
+    <header class="ds-hero">
+        <div class="ds-hero-kicker">{{ doc.project.name }} · Nouveautés</div>
+        <h1 class="ds-hero-title">{{ doc.title }}</h1>
+        <div class="ds-hero-meta">
+            <span class="ds-pill ds-pill-inverse">Version {{ doc.release.jiraVersionName }}</span>
+            {% if doc.release.releaseDate %}<span class="ds-pill ds-pill-inverse">{{ available ? 'Disponible depuis le' : 'Mise à disposition prévue le' }} {{ doc.release.releaseDate|date('d/m/Y') }}</span>{% endif %}
+        </div>
     </header>
 
-    {% if doc.intro %}<section class="rn-intro rn-intro-com">{{ doc.intro|rn_text }}</section>{% endif %}
+    {% if doc.intro %}<section class="ds-lead">{{ doc.intro|rn_text }}</section>{% endif %}
+
+    {% if highlights is not empty or fixes is not empty %}
+    <section class="ds-kpis" aria-label="En résumé">
+        {% if highlights is not empty %}<div class="ds-kpi"><span class="ds-kpi-value">{{ highlights|length }}</span><span class="ds-kpi-label">{{ highlights|length > 1 ? 'nouveautés à découvrir' : 'nouveauté à découvrir' }}</span></div>{% endif %}
+        {% if fixes is not empty %}<div class="ds-kpi ds-kpi-fix"><span class="ds-kpi-value">{{ fixes|length }}</span><span class="ds-kpi-label">{{ fixes|length > 1 ? 'corrections' : 'correction' }}</span></div>{% endif %}
+        {% if doc.actions is not empty %}<div class="ds-kpi ds-kpi-action"><span class="ds-kpi-value">{{ doc.actions|length }}</span><span class="ds-kpi-label">{{ doc.actions|length > 1 ? 'actions de votre part' : 'action de votre part' }}</span></div>{% endif %}
+    </section>
+    {% endif %}
 
     {% if highlights is not empty %}
-    <section class="rn-group">
-        <h2 class="rn-group-title">Les nouveautés</h2>
-        <div class="rn-cards">
+    <section class="ds-section">
+        <h2 class="ds-section-title">Les nouveautés</h2>
+        <div class="ds-grid">
             {% for s in highlights %}
-                <div class="rn-card rn-card-com">
-                    <div class="rn-card-icon" aria-hidden="true">{{ s.category.icon }}</div>
-                    <h3>{{ s.title }}</h3>
-                    {% if s.content %}<div class="rn-text">{{ s.content|rn_text }}</div>{% endif %}
-                    {% if s.section.impact %}<div class="rn-benefit"><strong>Ce qui change pour vous</strong>{{ s.section.impact|rn_text }}</div>{% endif %}
-                    {{ m.links(s.links, 'En savoir plus') }}
-                </div>
+                {% set cat = theme.categories[s.category.value] %}
+                <article class="ds-card ds-card-{{ s.category.value }}">
+                    <span class="ds-tag ds-tag-{{ s.category.value }}"><span aria-hidden="true">{{ cat.icon }}</span> {{ cat.label }}</span>
+                    <h3 class="ds-card-title">{{ s.title }}</h3>
+                    {% if s.content %}<div class="ds-card-body">{{ s.content|rn_text }}</div>{% endif %}
+                    {% if s.section.impact %}<div class="ds-benefit"><div class="ds-benefit-title">Ce qui change pour vous</div>{{ s.section.impact|rn_text }}</div>{% endif %}
+                    {% if s.links is not empty %}
+                        <div class="ds-card-links">{% for l in s.links %}<a class="ds-link" href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.label }} <span aria-hidden="true">→</span></a>{% endfor %}</div>
+                    {% endif %}
+                </article>
             {% endfor %}
         </div>
     </section>
     {% endif %}
 
     {% if fixes is not empty %}
-    <section class="rn-group">
-        <h2 class="rn-group-title">Corrections</h2>
-        <ul class="rn-fix-list">
+    <section class="ds-section">
+        <h2 class="ds-section-title">Corrections</h2>
+        <ul class="ds-fixes">
             {% for s in fixes %}
-                <li><strong>{{ s.title }}</strong>{% if s.content %}{{ s.content|rn_text }}{% endif %}</li>
+                <li class="ds-fix"><span class="ds-fix-icon" aria-hidden="true">{{ theme.categories.fix.icon }}</span><div><strong>{{ s.title }}</strong>{% if s.content %}<div class="ds-fix-body">{{ s.content|rn_text }}</div>{% endif %}</div></li>
             {% endfor %}
         </ul>
     </section>
     {% endif %}
 
     {% if doc.pendingSections is not empty %}
-    <section class="rn-box rn-box-neutral rn-box-large">
-        <div class="rn-box-title">En cours de finalisation</div>
-        <p>Les éléments suivants font partie de cette version mais leur mise à disposition reste à confirmer :</p>
+    <section class="ds-callout ds-callout-pending">
+        <div class="ds-callout-title"><span aria-hidden="true">◷</span> En cours de finalisation</div>
+        <p>Ces éléments font partie de cette version ; leur mise à disposition reste à confirmer :</p>
         <ul>{% for s in doc.pendingSections %}<li>{{ s.title }}</li>{% endfor %}</ul>
     </section>
     {% endif %}
@@ -49,12 +70,17 @@
     {% if doc.sections is empty and doc.pendingSections is empty %}<p class="rn-empty">Aucune section n'est visible dans ce format.</p>{% endif %}
 
     {% if doc.actions is not empty %}
-    <section class="rn-box rn-box-action rn-box-large">
-        <div class="rn-box-title">Ce que vous devez faire</div>
-        <ul>{% for a in doc.actions %}<li><strong>{{ a.title }} :</strong> {{ a.text|rn_inline }}</li>{% endfor %}</ul>
+    <section class="ds-callout ds-callout-action">
+        <div class="ds-callout-title"><span aria-hidden="true">!</span> Ce que vous devez faire</div>
+        <ol class="ds-steps">{% for a in doc.actions %}<li><strong>{{ a.title }}</strong> — {{ a.text|rn_inline }}</li>{% endfor %}</ol>
     </section>
     {% endif %}
 
-    {{ m.links(doc.links) }}
+    {% if doc.links is not empty %}
+    <section class="ds-section">
+        <h2 class="ds-section-title">Pour aller plus loin</h2>
+        <div class="ds-card-links">{% for l in doc.links %}<a class="ds-link" href="{{ l.url }}" target="_blank" rel="noopener noreferrer">{{ l.label }} <span aria-hidden="true">→</span></a>{% endfor %}</div>
+    </section>
+    {% endif %}
     {{ m.footer(doc) }}
 </article>
