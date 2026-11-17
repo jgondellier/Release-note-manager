@@ -1,0 +1,65 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}E-mail {{ format.label }} — {{ release.title }}{% endblock %}
+{% block breadcrumbs %}<a href="{{ path('release_show', {id: release.id}) }}">{{ release.title }}</a> › E-mail {{ format.label }}{% endblock %}
+
+{% block body %}
+<div class="page-header">
+    <div>
+        <h1>Envoyer par e-mail — {{ format.label }}</h1>
+        <p class="muted">Version mise en forme pour les messageries (Outlook compris) : copiez-la dans un message, ou ouvrez directement un brouillon Outlook prêt à envoyer.</p>
+    </div>
+</div>
+
+<div class="editor-toolbar">
+    <nav class="tabs" aria-label="Formats">
+        {% for f in formats %}
+            <a class="tab{{ f == format ? ' active' }}" href="{{ path('release_email', {id: release.id, format: f.value, to: to, cc: cc}) }}">{{ f.label }}</a>
+        {% endfor %}
+    </nav>
+    <div class="toolbar-right">
+        <a class="btn btn-sm btn-ghost" href="{{ path('release_preview', {id: release.id, format: format.value}) }}">Aperçu web</a>
+        <a class="btn btn-sm btn-secondary" href="{{ path('release_show', {id: release.id}) }}">← Éditeur</a>
+    </div>
+</div>
+
+<div class="grid grid-main-aside">
+    <section class="card">
+        <div class="card-header"><h2>Message</h2></div>
+        <form method="get" action="{{ path('release_email', {id: release.id, format: format.value}) }}">
+            <div class="field"><label for="email-subject">Objet</label><input type="text" id="email-subject" value="{{ subject }}" readonly data-select-on-focus></div>
+            <div class="grid grid-2">
+                <div class="field"><label for="email-to">À</label><input type="text" id="email-to" name="to" value="{{ to }}" placeholder="equipe@entreprise.fr, …"></div>
+                <div class="field"><label for="email-cc">Cc</label><input type="text" id="email-cc" name="cc" value="{{ cc }}" placeholder="facultatif"></div>
+            </div>
+            {% if invalid is not empty %}<div class="alert alert-warning">Adresse(s) ignorée(s) car invalide(s) : {{ invalid|join(', ') }}</div>{% endif %}
+            <button type="submit" class="btn btn-sm btn-ghost">Appliquer les destinataires</button>
+        </form>
+    </section>
+
+    <section class="card">
+        <div class="card-header"><h2>Envoyer</h2></div>
+        <div class="email-actions">
+            <a class="btn btn-primary btn-block" href="{{ path('release_email_eml', {id: release.id, format: format.value, to: to, cc: cc}) }}">✉ Ouvrir dans Outlook (.eml)</a>
+            <p class="small muted">Téléchargez puis ouvrez le fichier : Outlook l'affiche comme un nouveau message mis en forme, objet{{ to ? ' et destinataires' }} déjà remplis, prêt à envoyer.</p>
+            <button type="button" class="btn btn-secondary btn-block" data-copy-email="#email-frame">⧉ Copier le message mis en forme</button>
+            <p class="small muted">Puis coller (Ctrl+V) dans un nouveau message : la mise en forme est conservée.</p>
+            <a class="btn btn-ghost btn-block" href="{{ mailto }}">Messagerie par défaut (texte simple)</a>
+            <p class="small muted">Lien « mailto » : texte sans mise en forme{{ mailto_truncated ? ', tronqué car trop long' }}.</p>
+        </div>
+    </section>
+</div>
+
+<section class="card">
+    <div class="card-header"><h2>Aperçu du message</h2><span class="small muted">Objet : {{ subject }}</span></div>
+    <iframe id="email-frame" class="email-frame" title="Aperçu du message" sandbox="allow-same-origin allow-popups" srcdoc="{{ html|e('html_attr') }}"></iframe>
+</section>
+{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .email-frame { width: 100%; min-height: 900px; border: 1px solid #dfe1e6; border-radius: 8px; background: #f5f7fa; }
+    .email-actions .btn { margin-top: .25rem; }
+    .email-actions p { margin: .25rem 0 .75rem; }
+</style>
+{% endblock %}

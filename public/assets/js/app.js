@@ -250,6 +250,55 @@
         });
     }
 
+    /* ---------- Copie d'un e-mail mis en forme (HTML riche + texte) ---------- */
+    function initEmailCopy() {
+        const frame = document.querySelector('iframe.email-frame');
+        if (frame) {
+            // Hauteur de l'aperçu ajustée au message.
+            const fit = () => {
+                const doc = frame.contentDocument;
+                if (doc && doc.body) frame.style.height = (doc.documentElement.scrollHeight + 24) + 'px';
+            };
+            frame.addEventListener('load', fit);
+            fit();
+        }
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('[data-copy-email]');
+            if (!btn) return;
+            const source = document.querySelector(btn.dataset.copyEmail);
+            const doc = source && source.contentDocument;
+            if (!doc || !doc.body) return;
+            const done = (ok) => {
+                const old = btn.textContent;
+                btn.textContent = ok ? 'Copié ✔ — collez dans votre message' : 'Copie impossible : sélectionnez l’aperçu puis Ctrl+C';
+                setTimeout(() => { btn.textContent = old; }, 3000);
+            };
+            try {
+                if (navigator.clipboard && window.ClipboardItem) {
+                    await navigator.clipboard.write([new ClipboardItem({
+                        'text/html': new Blob([doc.body.innerHTML], { type: 'text/html' }),
+                        'text/plain': new Blob([doc.body.innerText], { type: 'text/plain' }),
+                    })]);
+                    done(true);
+                    return;
+                }
+            } catch (err) {
+                // Repli ci-dessous (contexte non sécurisé, navigateur ancien…).
+            }
+            // Repli : sélection du message rendu dans l'aperçu puis copie (la mise en forme est conservée).
+            const selection = doc.getSelection();
+            const range = doc.createRange();
+            range.selectNodeContents(doc.body);
+            selection.empty();
+            selection.addRange(range);
+            let ok = false;
+            try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+            selection.empty();
+            done(ok);
+        });
+        $$('[data-select-on-focus]').forEach((input) => input.addEventListener('focus', () => input.select()));
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         initCollections();
         initSidebar();
@@ -261,5 +310,6 @@
         initSortable();
         initLivePreview();
         initCopy();
+        initEmailCopy();
     });
 })();

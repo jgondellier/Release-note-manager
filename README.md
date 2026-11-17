@@ -318,6 +318,21 @@ de l'entreprise, modifiez les valeurs de ce fichier (contrastes WCAG AA ≥ 4,5:
 Compteurs du format **Fonctionnel** : nombre de **tickets** par catégorie, chacun selon son propre type
 (*Types de tickets*), et non nombre de sections (le ticket Epic lui-même n'est pas compté).
 
+### Envoi par e-mail
+
+Bouton **✉ E-mail** (éditeur et aperçus) : version de la release note conçue pour les messageries
+(mise en page en tableaux et styles en ligne, rendue correctement par Outlook), pour chacun des trois formats.
+
+- **Ouvrir dans Outlook (.eml)** : télécharge un brouillon ; ouvert, Outlook l'affiche comme un **nouveau
+  message mis en forme**, objet et destinataires (À / Cc saisis sur l'écran) déjà remplis, prêt à envoyer.
+  Fonctionne avec Outlook « classique » ; le nouvel Outlook et Outlook Web ouvrent le fichier en lecture :
+  utilisez alors la copie.
+- **Copier le message mis en forme** : copie le HTML dans le presse-papiers ; collez (Ctrl+V) dans un nouveau
+  message, la mise en forme est conservée.
+- **Messagerie par défaut** : lien `mailto:` en texte simple (tronqué au-delà de 1 500 caractères).
+
+Si la release est publiée, un lien « Consulter la version complète dans Confluence » termine le message.
+
 ## 16. Publication et republication
 
 1. **Publier…** : matrice des 6 cibles (3 formats × 2 instances). Les cibles non configurées ou

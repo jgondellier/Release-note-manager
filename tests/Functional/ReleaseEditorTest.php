@@ -203,4 +203,26 @@ final class ReleaseEditorTest extends WebTestCaseBase
         self::assertSelectorTextContains('body', '19 sous-tâche(s) retirée(s)');
         self::assertSelectorTextContains('body', '1 inaccessible(s)');
     }
+
+    public function testEmailScreenOffersCopyOutlookDraftAndMailto(): void
+    {
+        $project = $this->project();
+        $release = static::getContainer()->get(\App\Service\ReleaseNote\ReleaseImportService::class)->import($project, '10042');
+        $this->login();
+
+        $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/email/communication?to=equipe@acme.fr;faux&cc=chef@acme.fr');
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('.alert-warning', 'faux');
+        self::assertCount(1, $crawler->filter('[data-copy-email="#email-frame"]'));
+        self::assertStringContainsString('<!DOCTYPE html>', (string) $crawler->filter('#email-frame')->attr('srcdoc'));
+        $mailto = (string) $crawler->selectLink('Messagerie par défaut (texte simple)')->attr('href');
+        self::assertStringStartsWith('mailto:equipe@acme.fr?cc=chef%40acme.fr&subject=', $mailto);
+
+        $this->client->click($crawler->selectLink('✉ Ouvrir dans Outlook (.eml)')->link());
+        self::assertResponseIsSuccessful();
+        $response = $this->client->getResponse();
+        self::assertSame('message/rfc822', $response->headers->get('Content-Type'));
+        self::assertSame('attachment; filename="CCS 2.4.0 - Nouveautes.eml"', $response->headers->get('Content-Disposition'));
+        self::assertStringStartsWith("X-Unsent: 1\r\nTo: equipe@acme.fr\r\nCc: chef@acme.fr\r\n", (string) $response->getContent());
+    }
 }

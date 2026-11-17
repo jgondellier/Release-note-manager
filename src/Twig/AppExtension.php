@@ -6,9 +6,11 @@ namespace App\Twig;
 
 use App\Service\Jira\OctaneCoverageService;
 use App\Service\ReleaseNote\Design\CommunicationTheme;
+use App\Service\ReleaseNote\Email\EmailHtmlStyler;
 use App\Service\ReleaseNote\LinkListParser;
 use App\Service\ReleaseNote\TextFormatter;
 use Twig\Extension\AbstractExtension;
+use Twig\Markup;
 use Twig\TwigFilter;
 use Twig\TwigFunction;
 
@@ -17,6 +19,7 @@ final class AppExtension extends AbstractExtension
     public function __construct(
         private readonly TextFormatter $formatter,
         private readonly LinkListParser $linkParser,
+        private readonly EmailHtmlStyler $emailStyler,
     ) {
     }
 
@@ -26,6 +29,13 @@ final class AppExtension extends AbstractExtension
             // Texte éditorial → XHTML sûr (échappement intégral puis syntaxe légère).
             new TwigFilter('rn_text', $this->formatter->toHtml(...), ['is_safe' => ['html']]),
             new TwigFilter('rn_inline', $this->formatter->inline(...), ['is_safe' => ['html']]),
+            // Styles en ligne pour les e-mails (après rn_text / rn_inline ; toute autre entrée est échappée).
+            // E-mails : texte éditorial brut → XHTML sûr avec styles en ligne.
+            new TwigFilter('rn_email_text', fn (?string $text): string => $this->emailStyler->style($this->formatter->toHtml($text)), ['is_safe' => ['html']]),
+            // Bloc HTML capturé par {% set %} (objet Markup) : stylé tel quel ; toute autre valeur est échappée.
+            new TwigFilter('rn_email', fn (mixed $value): string => $this->emailStyler->style(
+                $value instanceof Markup ? (string) $value : htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            ), ['is_safe' => ['html']]),
         ];
     }
 

@@ -27,7 +27,8 @@ framework:
                 'User-Agent': 'ReleaseNoteManager/1.0'
 
     assets:
-        version: 'v1'
+        # ?v=<date de modification> : CSS/JS rechargés par le navigateur dès qu'ils changent.
+        version_strategy: App\Asset\FileVersionStrategy
 
 when@test:
     framework:

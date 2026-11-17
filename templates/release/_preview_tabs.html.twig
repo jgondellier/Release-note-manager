@@ -7,6 +7,7 @@
     <div class="toolbar-right">
         <a class="btn btn-sm btn-ghost{{ not (storage ?? false) ? ' active' }}" href="{{ path('release_preview', {id: release.id, format: format.value}) }}">Aperçu web</a>
         <a class="btn btn-sm btn-ghost{{ storage ?? false ? ' active' }}" href="{{ path('release_preview_storage', {id: release.id, format: format.value}) }}">Source Confluence</a>
+        <a class="btn btn-sm btn-ghost" href="{{ path('release_email', {id: release.id, format: format.value}) }}">✉ E-mail</a>
         <a class="btn btn-sm btn-secondary" href="{{ path('release_show', {id: release.id}) }}">← Éditeur</a>
         {% if not release.archived %}<a class="btn btn-sm btn-primary" href="{{ path('publication_select', {id: release.id}) }}">Publier…</a>{% endif %}
     </div>

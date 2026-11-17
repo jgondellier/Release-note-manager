@@ -62,6 +62,24 @@ class ReleaseNoteRenderer
         return ['doc' => $this->buildView($release, $format)];
     }
 
+    /**
+     * Version e-mail (HTML autonome, styles en ligne, mise en page en tableaux compatible Outlook).
+     *
+     * @param string|null $webUrl lien vers la page publiée (Confluence), ajouté en fin de message
+     */
+    public function renderEmail(Release $release, PublicationFormat $format, ?string $webUrl = null): string
+    {
+        if (PublicationFormat::AcceptanceReport === $format) {
+            throw new \InvalidArgumentException('Le PV de recette n\'a pas de version e-mail.');
+        }
+
+        return $this->formatter->withTicketLinks($release, fn () => $this->twig->render('render/email/release_note.html.twig', [
+            'doc' => $this->buildView($release, $format),
+            'subject' => $this->pageTitle($release, $format),
+            'web_url' => $webUrl,
+        ]));
+    }
+
     public function renderStorage(Release $release, PublicationFormat $format): string
     {
         $xml = $this->formatter->withTicketLinks($release, fn () => $this->twig->render(sprintf('render/confluence/%s.xml.twig', $format->value), $this->context($release, $format)));

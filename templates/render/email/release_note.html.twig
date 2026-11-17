@@ -1,0 +1,145 @@
+{#
+    Release note au format e-mail (copier-coller ou brouillon Outlook .eml).
+    Contraintes des messageries (Outlook = moteur de Word) : mise en page en tableaux, styles en ligne,
+    couleurs en attributs bgcolor, pas de CSS moderne (grille, flex, variables, dégradés).
+    Couleurs : charte CommunicationTheme (mêmes jetons que le web et Confluence).
+#}
+{% set theme = rn_theme() %}
+{% set brand = theme.brand %}
+{% set font = "font-family:'Segoe UI',Calibri,Arial,sans-serif;" %}
+{% set f = doc.format.value %}
+{% set kicker = {it: 'Release note IT', functional: 'Release note fonctionnelle', communication: 'Nouveautés'}[f] %}
+{% macro pill(label, accent, soft) -%}
+<span style="display:inline-block;background-color:{{ soft }};color:{{ accent }};font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.5px;padding:2px 8px;border-radius:10px;">{{ label }}</span>
+{%- endmacro %}
+{% macro box(title, text, accent, soft, font, html = null) -%}
+{% if text or html %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 10px 0;"><tr>
+<td width="4" bgcolor="{{ accent }}" style="background-color:{{ accent }};width:4px;font-size:0;line-height:0;">&nbsp;</td>
+<td bgcolor="{{ soft }}" style="background-color:{{ soft }};padding:10px 14px;{{ font }}font-size:14px;line-height:1.5;color:#1B2738;">
+<div style="font-weight:bold;color:{{ accent }};font-size:13px;margin:0 0 4px 0;">{{ title }}</div>{{ html ? html|rn_email : text|rn_email_text }}
+</td></tr></table>
+{% endif %}
+{%- endmacro %}
+{% macro links(links, title, font) -%}
+{% if links is not empty %}<p style="margin:6px 0 4px 0;{{ font }}font-size:13px;font-weight:bold;color:#556378;">{{ title }}</p><ul style="margin:0 0 10px 0;padding-left:22px;">{% for l in links %}<li style="margin:0 0 4px 0;{{ font }}font-size:14px;"><a href="{{ l.url }}" style="color:#0B5CAD;text-decoration:underline;">{{ l.label }}</a></li>{% endfor %}</ul>{% endif %}
+{%- endmacro %}
+{% import _self as e %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ subject }}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F5F7FA;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F5F7FA" style="background-color:#F5F7FA;">
+<tr><td align="center" style="padding:24px 12px;">
+<table role="presentation" width="680" cellpadding="0" cellspacing="0" border="0" style="width:680px;max-width:100%;background-color:#FFFFFF;border:1px solid {{ brand.border }};">
+{# En-tête #}
+<tr><td bgcolor="{{ brand.primaryStrong }}" style="background-color:{{ brand.primaryStrong }};padding:28px 32px;{{ font }}color:#FFFFFF;">
+<div style="font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;color:#CFE0F5;">{{ doc.project.name }} · {{ kicker }}</div>
+<div style="font-size:26px;line-height:1.25;font-weight:bold;color:#FFFFFF;margin:6px 0 10px 0;">{{ doc.title }}</div>
+<div style="font-size:14px;color:#FFFFFF;">Version {{ doc.release.jiraVersionName }}{% if doc.release.releaseDate %} · {{ f == 'communication' ? (doc.release.releaseDate|date('Ymd') <= 'now'|date('Ymd') ? 'disponible depuis le' : 'mise à disposition prévue le') : 'mise en production le' }} {{ doc.release.releaseDate|date('d/m/Y') }}{% endif %}</div>
+</td></tr>
+<tr><td style="padding:24px 32px 8px 32px;{{ font }}font-size:15px;line-height:1.55;color:#1B2738;">
+{% if doc.intro %}<div style="font-size:16px;margin:0 0 14px 0;">{{ doc.intro|rn_email_text }}</div>{% endif %}
+
+{% if f == 'communication' %}
+    {% set highlights = doc.sections|filter(s => s.category.value != 'fix') %}
+    {% set fixes = doc.sections|filter(s => s.category.value == 'fix') %}
+    {% if highlights is not empty or fixes is not empty %}
+    <p style="margin:0 0 16px 0;">{% if highlights is not empty %}<strong style="font-size:18px;color:{{ brand.primaryStrong }};">{{ highlights|length }}</strong> {{ highlights|length > 1 ? 'nouveautés' : 'nouveauté' }}{% endif %}{% if highlights is not empty and fixes is not empty %} &nbsp;·&nbsp; {% endif %}{% if fixes is not empty %}<strong style="font-size:18px;color:{{ theme.categories.fix.accent }};">{{ fixes|length }}</strong> {{ fixes|length > 1 ? 'corrections' : 'correction' }}{% endif %}</p>
+    {% endif %}
+    {% if highlights is not empty %}
+    <h2 style="margin:8px 0 12px 0;font-size:20px;color:{{ brand.primaryStrong }};">Les nouveautés</h2>
+    {% for s in highlights %}{% set cat = theme.categories[s.category.value] %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px 0;border:1px solid {{ brand.border }};border-top:4px solid {{ cat.accent }};">
+    <tr><td style="padding:14px 18px;{{ font }}font-size:15px;line-height:1.55;color:#1B2738;">
+    {{ e.pill(cat.icon ~ ' ' ~ cat.label, cat.accent, cat.soft) }}
+    <div style="font-size:17px;font-weight:bold;margin:8px 0 6px 0;">{{ s.title }}</div>
+    {% if s.content %}{{ s.content|rn_email_text }}{% endif %}
+    {{ e.box('Ce qui change pour vous', s.section.impact, brand.primary, brand.primarySoft, font) }}
+    {{ e.links(s.links, 'En savoir plus', font) }}
+    </td></tr></table>
+    {% endfor %}
+    {% endif %}
+    {% if fixes is not empty %}
+    <h2 style="margin:16px 0 10px 0;font-size:20px;color:{{ brand.primaryStrong }};">Corrections</h2>
+    {% for s in fixes %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 8px 0;"><tr>
+    <td width="26" valign="top" style="width:26px;{{ font }}font-size:15px;color:{{ theme.categories.fix.accent }};font-weight:bold;">✔</td>
+    <td style="{{ font }}font-size:15px;line-height:1.55;color:#1B2738;"><strong>{{ s.title }}</strong>{% if s.content %}<div style="color:#556378;">{{ s.content|rn_email_text }}</div>{% endif %}</td>
+    </tr></table>
+    {% endfor %}
+    {% endif %}
+    {% if doc.pendingSections is not empty %}
+    {% set pending %}<p>Ces éléments font partie de cette version ; leur mise à disposition reste à confirmer :</p><ul>{% for s in doc.pendingSections %}<li>{{ s.title }}</li>{% endfor %}</ul>{% endset %}
+    {{ e.box('En cours de finalisation', null, theme.states.pending.accent, theme.states.pending.soft, font, pending) }}
+    {% endif %}
+
+{% elseif f == 'functional' %}
+    {% set titles = {feature: 'Évolutions fonctionnelles', fix: 'Corrections', other: 'Autres changements', technical: 'Changements techniques'} %}
+    {% set singular = {feature: 'évolution fonctionnelle', fix: 'correction', other: 'autre changement', technical: 'changement technique'} %}
+    {% set counts = [] %}{% for key in ['feature', 'fix', 'other', 'technical'] %}{% if doc.categoryStats[key] ?? 0 %}{% set counts = counts|merge(['<strong>' ~ doc.categoryStats[key] ~ '</strong> ' ~ (doc.categoryStats[key] > 1 ? titles[key]|lower : singular[key])]) %}{% endif %}{% endfor %}
+    {% if counts is not empty %}<p style="margin:0 0 16px 0;">{{ counts|join(' &nbsp;·&nbsp; ')|raw }}</p>{% endif %}
+    {% set groups = doc.sectionsByCategory %}
+    {% for key in ['feature', 'fix', 'other', 'technical'] %}{% if groups[key] is defined %}{% set cat = theme.categories[key] %}
+    <h2 style="margin:14px 0 10px 0;font-size:20px;color:{{ brand.primaryStrong }};border-bottom:2px solid {{ cat.accent }};padding-bottom:4px;">{{ titles[key] }}</h2>
+    {% for s in groups[key] %}
+    <div style="font-size:17px;font-weight:bold;margin:12px 0 4px 0;">{{ s.title }}</div>
+    {% if s.section.audience %}<p style="margin:0 0 6px 0;color:#556378;font-style:italic;font-size:14px;">Parcours concernés : {{ s.section.audience }}</p>{% endif %}
+    {% if s.content %}{{ s.content|rn_email_text }}{% endif %}
+    {{ e.box('Impacts métier', s.section.impact, brand.primary, brand.primarySoft, font) }}
+    {% if s.section.functionalShowTickets and s.tickets is not empty %}<ul style="margin:0 0 10px 0;padding-left:22px;color:#556378;font-size:14px;">{% for t in s.tickets %}<li style="margin:0 0 4px 0;">{{ t.summary }}</li>{% endfor %}</ul>{% endif %}
+    {{ e.links(s.links, 'Documentation', font) }}
+    {% endfor %}
+    {% endif %}{% endfor %}
+
+{% else %}
+    {% if doc.typeStats is not empty %}
+    <p style="margin:0 0 16px 0;"><strong>{{ doc.ticketCount }}</strong> ticket(s) : {% for type, count in doc.typeStats %}{{ count }} {{ type }}{{ not loop.last ? ', ' }}{% endfor %}{% if doc.components is not empty %}<br><span style="color:#556378;font-size:14px;">Composants : {{ doc.components|join(', ') }}</span>{% endif %}</p>
+    {% endif %}
+    {% for s in doc.sections %}{% set cat = theme.categories[s.category.value] %}
+    <h2 style="margin:18px 0 6px 0;font-size:19px;color:{{ brand.primaryStrong }};border-bottom:1px solid {{ brand.border }};padding-bottom:4px;">{{ s.title }} {{ e.pill(s.category.label, cat.accent, cat.soft) }}{% if s.section.sourceType.value == 'epic' %} {{ e.pill('Epic ' ~ s.section.sourceKey, brand.muted, brand.surfaceAlt) }}{% elseif s.section.sourceType.value == 'label' %} {{ e.pill('Étiquette ' ~ s.section.sourceKey, brand.muted, brand.surfaceAlt) }}{% endif %}</h2>
+    {% if s.section.audience %}<p style="margin:0 0 6px 0;color:#556378;font-style:italic;font-size:14px;">Audience : {{ s.section.audience }}</p>{% endif %}
+    {% if s.section.description %}{{ s.section.description|rn_email_text }}{% endif %}
+    {% if s.content %}<p style="margin:8px 0 4px 0;font-size:13px;font-weight:bold;color:#556378;text-transform:uppercase;">Description technique</p>{{ s.content|rn_email_text }}{% endif %}
+    {{ e.box('Impacts', s.section.impact, brand.primary, brand.primarySoft, font) }}
+    {{ e.box('Procédure / action', s.section.actionRequired, theme.states.action.accent, theme.states.action.soft, font) }}
+    {{ e.box('Risques et points de vigilance', s.section.risks, '#AE2A19', '#FFECEB', font) }}
+    {{ e.box('Tests et validations', s.section.validation, theme.categories.fix.accent, theme.categories.fix.soft, font) }}
+    {% if s.tickets is not empty %}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 12px 0;border-collapse:collapse;{{ font }}font-size:13px;">
+    <tr>{% for h in ['Clé', 'Type', 'Résumé', 'Statut'] %}<th align="left" bgcolor="{{ brand.surfaceAlt }}" style="background-color:{{ brand.surfaceAlt }};border:1px solid {{ brand.border }};padding:6px 8px;color:#1B2738;">{{ h }}</th>{% endfor %}</tr>
+    {% for t in s.tickets %}
+    <tr>
+    <td style="border:1px solid {{ brand.border }};padding:6px 8px;white-space:nowrap;"><a href="{{ t.jiraUrl }}" style="color:#0B5CAD;text-decoration:underline;">{{ t.jiraKey }}</a></td>
+    <td style="border:1px solid {{ brand.border }};padding:6px 8px;">{{ t.issueType }}</td>
+    <td style="border:1px solid {{ brand.border }};padding:6px 8px;">{{ t.summary }}</td>
+    <td style="border:1px solid {{ brand.border }};padding:6px 8px;color:{{ t.done ? theme.categories.fix.accent : '#556378' }};font-weight:bold;">{{ t.status }}</td>
+    </tr>
+    {% endfor %}
+    </table>
+    {% endif %}
+    {{ e.links(s.links, 'Liens utiles', font) }}
+    {% endfor %}
+{% endif %}
+
+{% if doc.sections is empty and doc.pendingSections is empty %}<p style="color:#556378;font-style:italic;">Aucune section n'est visible dans ce format.</p>{% endif %}
+
+{% if doc.actions is not empty %}
+{% set actions %}<ol>{% for a in doc.actions %}<li><strong>{{ a.title }}</strong> — {{ a.text|rn_inline }}</li>{% endfor %}</ol>{% endset %}
+{{ e.box(f == 'communication' ? 'Ce que vous devez faire' : 'Actions à prévoir', null, theme.states.action.accent, theme.states.action.soft, font, actions) }}
+{% endif %}
+{{ e.links(doc.links, f == 'communication' ? 'Pour aller plus loin' : 'Documentation et liens utiles', font) }}
+{% if web_url %}<p style="margin:14px 0 4px 0;font-size:14px;"><a href="{{ web_url }}" style="color:#0B5CAD;text-decoration:underline;">Consulter la version complète dans Confluence</a></p>{% endif %}
+</td></tr>
+<tr><td style="padding:14px 32px 22px 32px;{{ font }}font-size:12px;color:#556378;border-top:1px solid {{ brand.border }};">
+{{ doc.project.name }} · version {{ doc.release.jiraVersionName }}{% if doc.release.releaseDate %} · mise en production le {{ doc.release.releaseDate|date('d/m/Y') }}{% endif %}
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

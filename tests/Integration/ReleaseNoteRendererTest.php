@@ -113,4 +113,37 @@ final class ReleaseNoteRendererTest extends DatabaseTestCase
         self::assertStringContainsString('<ac:parameter ac:name="titleBGColor">' . \App\Service\ReleaseNote\Design\CommunicationTheme::BRAND['primaryStrong'] . '</ac:parameter>', $storage);
         self::assertStringNotContainsString('class="', $storage);
     }
+
+    public function testEmailVersionIsOutlookFriendlyAndNeverDoubleEscaped(): void
+    {
+        $project = $this->createProject();
+        $issues = [JiraFixtures::issue('CCS-2', 'Story', 'Filtrer <vite>'), JiraFixtures::issue('CCS-5', 'Bug', 'Date erronée')];
+        $this->fakeJiraCloud($issues);
+        $release = $this->service(ReleaseImportService::class)->import($project, '10042');
+        foreach ($release->getSections() as $section) {
+            $section->setFunctionalContent("**Gras** et CCS-2\n- point <script>")->setCommunicationContent('Texte com')->setImpact('Impact *métier*')
+                ->setActionRequired('Relancer le poste')->setRisks('Risque')->setValidation('Validé');
+        }
+        $this->em->flush();
+
+        $renderer = $this->service(ReleaseNoteRenderer::class);
+        foreach (PublicationFormat::releaseNoteFormats() as $format) {
+            $html = $renderer->renderEmail($release, $format, 'https://wiki.acme/page/1');
+            self::assertStringNotContainsString('&lt;p', $html, $format->value . ' : aucun HTML échappé deux fois');
+            self::assertStringNotContainsString('<script', $html);
+            self::assertStringNotContainsString('class="', $html, 'Styles en ligne uniquement');
+            self::assertStringNotContainsString('display:flex', $html);
+            self::assertStringContainsString('<table role="presentation"', $html);
+            self::assertStringContainsString('https://wiki.acme/page/1', $html);
+            self::assertStringContainsString('<p style="margin:0 0 10px 0;">', $html, 'Paragraphes stylés en ligne');
+        }
+        $functional = $renderer->renderEmail($release, PublicationFormat::Functional);
+        self::assertStringContainsString('<strong>Gras</strong>', $functional);
+        self::assertMatchesRegularExpression('#href="https://acme\.atlassian\.net/browse/CCS-2">CCS-2</a>#', $functional, 'Numéro de ticket lié vers Jira');
+        self::assertStringContainsString('&lt;script&gt;', $functional);
+        self::assertStringContainsString('Impacts métier</div><p style="margin:0 0 10px 0;">Impact *métier*</p>', $functional, 'Encadré : texte mis en forme, non échappé');
+        $it = $renderer->renderEmail($release, PublicationFormat::It);
+        self::assertStringContainsString('Filtrer &lt;vite&gt;', $it, 'Données Jira échappées');
+        self::assertStringContainsString('<ol style="margin:0 0 10px 0;padding-left:22px;">', $it, 'Bloc capturé (actions) stylé');
+    }
 }
