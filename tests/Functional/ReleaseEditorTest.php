@@ -48,7 +48,6 @@ final class ReleaseEditorTest extends WebTestCaseBase
     public function testFullEditorialFlow(): void
     {
         $project = $this->project();
-        $this->login();
 
         // 1-2. Choix du projet et des versions.
         $crawler = $this->client->request('GET', '/releases/new/' . $project->getId());
@@ -133,7 +132,6 @@ final class ReleaseEditorTest extends WebTestCaseBase
         });
         $release = static::getContainer()->get(\App\Service\ReleaseNote\ReleaseImportService::class)->import($project, '10042');
         $issues[0]['fields']['labels'] = ['nouveau-lot'];
-        $this->login();
 
         $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/refresh');
         self::assertResponseIsSuccessful();
@@ -185,7 +183,6 @@ final class ReleaseEditorTest extends WebTestCaseBase
         }
         unset($issue);
         $issues = array_values(array_filter($issues, static fn ($i) => $i['key'] !== $deleted));
-        $this->login();
         $this->server->requests = [];
 
         $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/refresh');
@@ -208,7 +205,6 @@ final class ReleaseEditorTest extends WebTestCaseBase
     {
         $project = $this->project();
         $release = static::getContainer()->get(\App\Service\ReleaseNote\ReleaseImportService::class)->import($project, '10042');
-        $this->login();
 
         $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/email/communication?to=equipe@acme.fr;faux&cc=chef@acme.fr');
         self::assertResponseIsSuccessful();

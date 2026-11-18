@@ -38,7 +38,6 @@ final class LocalUpdateTest extends WebTestCaseBase
 
     public function testDefaultSettingsTargetThisInstallation(): void
     {
-        $this->login();
         $crawler = $this->client->request('GET', '/updates');
         self::assertResponseIsSuccessful();
         $text = $crawler->filter('main')->text();
@@ -53,7 +52,6 @@ final class LocalUpdateTest extends WebTestCaseBase
 
     public function testSettingsFormHasNoTargetDirectory(): void
     {
-        $this->login();
         $crawler = $this->client->request('GET', '/updates/settings');
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('[name*="targetDirectory"]'));
@@ -71,15 +69,8 @@ final class LocalUpdateTest extends WebTestCaseBase
 
     public function testRemoteAccessIsRefused(): void
     {
-        $this->login();
         $this->client->request('GET', '/updates', server: ['REMOTE_ADDR' => '10.0.0.5']);
         self::assertResponseStatusCodeSame(403);
-    }
-
-    public function testAnonymousAccessIsRefused(): void
-    {
-        $this->client->request('GET', '/updates');
-        self::assertResponseRedirects('/login');
     }
 
     public function testFullUpdateOfTheInstallation(): void
@@ -113,7 +104,6 @@ final class LocalUpdateTest extends WebTestCaseBase
 
     public function testCommandsOnlyFromScreenStopsOnError(): void
     {
-        $this->login();
         $this->settings("php -r \"exit(2);\"\nphp -r \"echo 'jamais';\"");
 
         $crawler = $this->client->request('GET', '/updates');

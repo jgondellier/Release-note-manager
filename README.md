@@ -25,7 +25,7 @@ publication vers **Confluence Cloud** et **Confluence Server / Data Center** (ju
 4. [Configuration de `.env.local`](#4-configuration-de-envlocal)
 5. [Clé de chiffrement](#5-clé-de-chiffrement)
 6. [Migrations](#6-migrations)
-7. [Token d'administration](#7-token-dadministration)
+7. [Accès à l'application](#7-accès-à-lapplication)
 8. [Démarrage en local](#8-démarrage-en-local)
 9. [Serveur web (Apache / EasyPHP)](#9-serveur-web-apache--easyphp)
 10. [Jira Cloud](#10-jira-cloud)
@@ -96,7 +96,6 @@ Puis renseigner (voir les commentaires de `.env.example`) :
 | `APP_ENV` / `APP_DEBUG` | `prod` / `0` en production |
 | `APP_SECRET` | secret Symfony (CSRF, sessions) : `php -r "echo bin2hex(random_bytes(32));"` |
 | `DATABASE_URL` | `mysql://rnm:MDP@127.0.0.1:3306/release_notes?serverVersion=8.0.32&charset=utf8mb4` |
-| `ADMIN_TOKEN` | token de connexion à l'interface (≥ 32 caractères) |
 | `APP_ENCRYPTION_KEY` | clé de chiffrement des secrets Jira/Confluence |
 | `APP_HTTP_PROXY`, `APP_HTTP_NO_PROXY`, `APP_HTTP_CAFILE`, `APP_HTTP_VERIFY_PEER` | réseau sortant (proxy, CA d'entreprise) |
 | `APP_HTTP_TIMEOUT`, `APP_HTTP_MAX_DURATION` | délais des appels Jira/Confluence (secondes) |
@@ -143,19 +142,18 @@ Les connexions de démonstration sont **inactives** et pointent vers des domaine
 réel n'est possible avec elles. Il n'existe pas d'autre « mode démo » : en usage normal, toutes les données
 viennent des vraies API.
 
-## 7. Token d'administration
+## 7. Accès à l'application
 
-```bash
-php bin/console app:admin:generate-token
-# ADMIN_TOKEN=…  (à placer dans .env.local ou dans une variable d'environnement du serveur)
-```
+Il n'y a **pas d'authentification** (usage local, comme WSUse) : l'application s'ouvre directement sur le
+tableau de bord. Toute personne qui atteint l'URL peut donc consulter, modifier et publier les release notes
+et utiliser les connexions Jira / Confluence enregistrées (leurs secrets ne sont jamais réaffichés).
 
-- Le token n'est stocké que dans l'environnement du serveur ; jamais en base, dans les journaux ni dans
-  les messages d'erreur. La comparaison est faite en temps constant.
-- 5 tentatives échouées par IP → blocage 15 minutes (limiteur Symfony).
-- **Rotation** : remplacer `ADMIN_TOKEN`, puis `php bin/console cache:clear`. Les sessions déjà ouvertes
-  restent valides jusqu'à expiration (4 h d'inactivité) ; pour forcer une reconnexion immédiate, purger
-  le répertoire des sessions PHP (`session.save_path`) ou modifier `APP_SECRET`.
+- Gardez l'application **sur le poste** : `php -S 127.0.0.1:8000` ou, sous Apache, `Require local`
+  (voir § 9). Pour la partager sur le réseau, limitez l'accès aux postes autorisés
+  (`Require ip 10.1.2.0/24`…) ou placez-la derrière une authentification du serveur web.
+- Les écrans *Mises à jour* et *Sauvegarde* restent réservés au poste lui-même (127.0.0.1), sauf
+  `RNM_UPDATE_ALLOW_REMOTE=1`.
+- Les actions de modification restent protégées contre le CSRF (jeton dans chaque formulaire).
 
 ## 8. Démarrage en local
 
@@ -166,7 +164,7 @@ php -S 127.0.0.1:8000 -t public
 > Ne pas passer `public/index.php` comme script routeur : les fichiers CSS/JS ne seraient plus servis
 > directement.
 
-Ouvrir http://127.0.0.1:8000 et se connecter avec `ADMIN_TOKEN`.
+Ouvrir http://127.0.0.1:8000.
 
 ## 9. Serveur web (Apache / EasyPHP)
 
@@ -180,7 +178,9 @@ La racine web **doit** être le dossier `public/` (jamais la racine du projet, q
     DocumentRoot "C:/EasyPHP/eds-www/release-note-manager/public"
     <Directory "C:/EasyPHP/eds-www/release-note-manager/public">
         AllowOverride All
-        Require all granted
+        # Pas d'authentification dans l'application : accès depuis ce poste seulement
+        # (ou « Require ip 10.1.2.0/24 » pour les postes autorisés du réseau).
+        Require local
         FallbackResource /index.php
     </Directory>
     ErrorLog  "logs/release-notes-error.log"
@@ -498,7 +498,7 @@ Restauration : arrêter Apache, extraire l'archive, exécuter `database/release_
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 136 tests (unitaires, intégration, fonctionnels, mises à jour, sauvegarde)
+php vendor/bin/phpunit                 # 128 tests (unitaires, intégration, fonctionnels, mises à jour, sauvegarde)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional
@@ -509,8 +509,8 @@ Les tests utilisent une base **SQLite** isolée (`var/test.db`, extension `pdo_s
 **MockHttpClient** (`tests/Support/FakeAtlassianServer.php`) : aucune instance Jira/Confluence réelle
 n'est contactée.
 
-Couverture fonctionnelle : authentification par token (succès, échec, CSRF, déconnexion), refus d'accès
-anonyme, validation des formulaires, chiffrement/déchiffrement, regroupement par Epic, par étiquette (conversion, priorité, étiquettes ignorées) et par type, respect de
+Couverture fonctionnelle : accès direct sans connexion, protection CSRF, accès local seulement aux écrans
+Mises à jour et Sauvegarde, validation des formulaires, chiffrement/déchiffrement, regroupement par Epic, par étiquette (conversion, priorité, étiquettes ignorées) et par type, respect de
 la Fix Version (JQL + filtrage défensif), pagination Cloud et Server, absence de doublons à l'import et à
 l'actualisation, actualisation sans perte de wording ni de classement, rendu des trois formats (et XHTML
 Confluence bien formé), création / mise à jour de pages Cloud et Server, conflit de version, isolation des
@@ -578,14 +578,13 @@ APP_HTTP_VERIFY_PEER=1
 
 ```
 src/
-├── Command/               commandes console (clé, rotation, token, test de connexion)
+├── Command/               commandes console (clé, rotation, test de connexion, mise à jour, sauvegarde)
 ├── Controller/            contrôleurs minces (délèguent aux services)
 ├── DataFixtures/          données de démonstration (dev)
 ├── Entity/                entités Doctrine
 ├── Enum/                  statuts et types (enums PHP)
 ├── Form/                  formulaires Symfony
 ├── Repository/            requêtes Doctrine
-├── Security/              AdminTokenAuthenticator, AdminTokenVerifier
 ├── Twig/                  filtres rn_text / rn_inline, fonction rn_links
 └── Service/
     ├── Http/              AtlassianApiClient (auth, erreurs, proxy), HttpClientOptionsProvider
@@ -617,7 +616,6 @@ navigateur. Le XHTML est validé (bien formé) avant envoi.
 
 | Route | Rôle |
 |---|---|
-| `GET /login`, `POST /logout` | connexion / déconnexion |
 | `GET /` | tableau de bord |
 | `/projects…`, `/connections…`, `/settings/issue-types…` | administration (CRUD, test, validation, activation) |
 | `GET /releases/new` → `/releases/new/{projet}` → `/releases/new/{projet}/{version}` | création en 3 étapes |
@@ -629,7 +627,7 @@ navigateur. Le XHTML est validé (bien formé) avant envoi.
 | `GET /releases/{id}/publications`, `POST /publications/{id}/retry` | historique, nouvelle tentative |
 | `POST /releases/{id}/archive|unarchive`, `GET|POST …/delete`, `…/duplicate` | cycle de vie |
 
-Toutes les routes (sauf `/login`) exigent `ROLE_ADMIN` ; toutes les actions de modification sont en POST
+Aucune authentification (voir § 7) ; toutes les actions de modification sont en POST
 avec jeton CSRF.
 
 ## 21. Modèle de données
@@ -803,9 +801,9 @@ Correspondance avec le cahier des charges :
 
 ## 22. Sécurité
 
-- Authentification Symfony Security (`AdminTokenAuthenticator`, CSRF sur le formulaire de connexion),
-  session régénérée après connexion, cookie `HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS.
-- Limitation des tentatives (5 / 15 min par IP), message d'erreur générique.
+- Pas d'authentification : l'accès se limite au niveau du serveur web (`Require local` ou liste d'IP, § 7 et
+  § 9) ; écrans Mises à jour et Sauvegarde réservés à 127.0.0.1 (`LocalOnlyListener`).
+- Cookie de session `HttpOnly`, `SameSite=Lax`, `Secure` en HTTPS.
 - CSRF sur tous les formulaires et toutes les actions POST ; actions de modification uniquement en POST.
 - Requêtes Doctrine paramétrées ; JQL construite avec échappement et identifiants numériques ; clés Jira
   validées par expression régulière.
@@ -826,7 +824,7 @@ Correspondance avec le cahier des charges :
   d'attente asynchrone.
 - Verrous de publication sur fichiers locaux (`var/lock`) : adaptés à un seul serveur web ; en
   multi-serveurs, configurer un store partagé (`framework.lock`).
-- Un seul compte administrateur (token partagé) : pas de traçabilité par utilisateur.
+- Pas de comptes utilisateurs : pas de traçabilité par utilisateur.
 - Les liens vers Jira sont des liens hypertexte simples (pas de macro Jira, qui exigerait un *application
   link* configuré entre Confluence et Jira).
 - Doctrine ORM 3.7 émet des avis de dépréciation (directions de tri en chaîne, à remplacer par l'enum

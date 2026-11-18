@@ -6,65 +6,41 @@ namespace App\Tests\Functional;
 
 use App\Tests\Support\WebTestCaseBase;
 
+/**
+ * Pas d'authentification (usage local, comme WSUse) : les écrans s'ouvrent directement,
+ * les actions de modification restent protégées par un jeton CSRF.
+ */
 final class SecurityTest extends WebTestCaseBase
 {
-    /** @return iterable<array{string, string}> */
-    public static function protectedRoutes(): iterable
+    /** @return iterable<array{string}> */
+    public static function screens(): iterable
     {
-        yield ['GET', '/'];
-        yield ['GET', '/projects'];
-        yield ['GET', '/connections/new'];
-        yield ['GET', '/releases'];
-        yield ['GET', '/settings/issue-types'];
-        yield ['POST', '/releases/1/publish/execute'];
-        yield ['POST', '/publications/1/retry'];
-        yield ['POST', '/connections/1/test'];
+        yield ['/'];
+        yield ['/projects'];
+        yield ['/connections/new'];
+        yield ['/releases'];
+        yield ['/settings/issue-types'];
     }
 
-    #[\PHPUnit\Framework\Attributes\DataProvider('protectedRoutes')]
-    public function testAnonymousAccessIsRedirectedToLogin(string $method, string $url): void
+    #[\PHPUnit\Framework\Attributes\DataProvider('screens')]
+    public function testScreensOpenWithoutLogin(string $url): void
     {
-        $this->client->request($method, $url);
-        self::assertResponseRedirects('/login');
-    }
-
-    public function testWrongTokenIsRejectedWithGenericMessage(): void
-    {
-        $crawler = $this->client->request('GET', '/login');
-        $this->client->submit($crawler->selectButton('Se connecter')->form(['_admin_token' => 'mauvais-token']));
-        self::assertResponseRedirects('/login');
-        $this->client->followRedirect();
-        self::assertSelectorTextContains('.alert-danger', 'Identifiants invalides');
-        self::assertStringNotContainsString($this->adminToken(), (string) $this->client->getResponse()->getContent());
-
-        $this->client->request('GET', '/');
-        self::assertResponseRedirects('/login');
-    }
-
-    public function testLoginWithoutCsrfTokenIsRejected(): void
-    {
-        $this->client->request('POST', '/login', ['_admin_token' => $this->adminToken()]);
-        $this->client->request('GET', '/');
-        self::assertResponseRedirects('/login');
-    }
-
-    public function testValidTokenOpensSessionAndLogoutClosesIt(): void
-    {
-        $this->login();
+        $this->client->request('GET', $url);
         self::assertResponseIsSuccessful();
-        self::assertSelectorTextContains('h1', 'Tableau de bord');
+    }
 
+    public function testLoginAndLogoutNoLongerExist(): void
+    {
         $crawler = $this->client->request('GET', '/');
-        $this->client->submit($crawler->selectButton('Déconnexion')->form());
-        $this->client->request('GET', '/');
-        self::assertResponseRedirects('/login');
+        self::assertSelectorTextContains('h1', 'Tableau de bord');
+        self::assertCount(0, $crawler->selectButton('Déconnexion'));
+
+        $this->client->request('GET', '/login');
+        self::assertResponseStatusCodeSame(404);
     }
 
     public function testPostActionsRequireCsrfToken(): void
     {
-        $this->login();
-        $this->client->request('POST', '/projects/1/check');
-        // Projet inexistant : 404 avant même la vérification CSRF ; on teste une action sur une ressource réelle.
         $this->client->request('GET', '/connections/new');
         $form = $this->client->getCrawler()->selectButton('Enregistrer')->form([
             'connection[name]' => 'Jira',

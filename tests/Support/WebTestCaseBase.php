@@ -35,18 +35,4 @@ abstract class WebTestCaseBase extends WebTestCase
         $http = static::getContainer()->get('test.mock_http_client');
         $http->setResponseFactory($this->server);
     }
-
-    protected function adminToken(): string
-    {
-        return (string) $_SERVER['ADMIN_TOKEN'];
-    }
-
-    protected function login(): void
-    {
-        $crawler = $this->client->request('GET', '/login');
-        $form = $crawler->selectButton('Se connecter')->form(['_admin_token' => $this->adminToken()]);
-        $this->client->submit($form);
-        self::assertResponseRedirects('/');
-        $this->client->followRedirect();
-    }
 }

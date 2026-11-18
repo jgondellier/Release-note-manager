@@ -22,7 +22,6 @@ final class AdministrationTest extends WebTestCaseBase
 
     public function testConnectionSecretIsEncryptedAndNeverSentBack(): void
     {
-        $this->login();
         $this->createConnection([
             'connection[name]' => 'Jira Cloud CCS',
             'connection[provider]' => 'jira',
@@ -54,7 +53,6 @@ final class AdministrationTest extends WebTestCaseBase
 
     public function testConnectionValidationErrors(): void
     {
-        $this->login();
         $this->createConnection([
             'connection[name]' => '',
             'connection[provider]' => 'jira',
@@ -74,7 +72,6 @@ final class AdministrationTest extends WebTestCaseBase
 
     public function testConnectionTestButtonRecordsResult(): void
     {
-        $this->login();
         $this->createConnection([
             'connection[name]' => 'Jira DC',
             'connection[provider]' => 'jira',
@@ -109,7 +106,6 @@ final class AdministrationTest extends WebTestCaseBase
 
     public function testProjectFormValidatesConnectionTypes(): void
     {
-        $this->login();
         $this->createConnection([
             'connection[name]' => 'Jira',
             'connection[provider]' => 'jira',
@@ -140,7 +136,6 @@ final class AdministrationTest extends WebTestCaseBase
 
     public function testLabelConversionTableCrud(): void
     {
-        $this->login();
         $crawler = $this->client->request('GET', '/settings/labels/new');
         self::assertResponseIsSuccessful();
         // Phrase obligatoire si l'étiquette n'est pas ignorée.

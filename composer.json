@@ -26,8 +26,6 @@
         "symfony/lock": "7.4.*",
         "symfony/monolog-bundle": "^3.10",
         "symfony/process": "7.4.*",
-        "symfony/rate-limiter": "7.4.*",
-        "symfony/security-bundle": "7.4.*",
         "symfony/security-csrf": "7.4.*",
         "symfony/translation": "7.4.*",
         "symfony/twig-bundle": "7.4.*",

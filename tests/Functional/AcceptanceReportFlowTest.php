@@ -48,7 +48,6 @@ final class AcceptanceReportFlowTest extends WebTestCaseBase
     public function testCreateEditPreviewAndPublishScreen(): void
     {
         $release = $this->release();
-        $this->login();
 
         $crawler = $this->client->request('GET', '/releases/' . $release->getId() . '/acceptance');
         self::assertSelectorTextContains('h2', 'Créer le procès-verbal');

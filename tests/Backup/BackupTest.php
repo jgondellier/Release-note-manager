@@ -43,7 +43,6 @@ final class BackupTest extends WebTestCaseBase
 
     public function testConfigureRunAndDownloadFromAdministration(): void
     {
-        $this->login();
         $crawler = $this->client->request('GET', '/');
         $this->client->click($crawler->filter('nav a[href="/backups"]')->link());
         self::assertSelectorTextContains('h1', 'Sauvegarde');
@@ -101,7 +100,6 @@ final class BackupTest extends WebTestCaseBase
 
     public function testInvalidCsrfIsRefused(): void
     {
-        $this->login();
         $this->client->request('POST', '/backups/run', ['_token' => 'faux']);
         self::assertResponseStatusCodeSame(403);
     }
@@ -135,15 +133,8 @@ final class BackupTest extends WebTestCaseBase
             }
         }
 
-        $this->login();
         $this->client->request('GET', '/backups', server: ['REMOTE_ADDR' => '10.1.2.3']);
         self::assertResponseStatusCodeSame(403);
-    }
-
-    public function testAnonymousAccessIsRefused(): void
-    {
-        $this->client->request('GET', '/backups');
-        self::assertResponseRedirects('/login');
     }
 
     public function testCommand(): void
