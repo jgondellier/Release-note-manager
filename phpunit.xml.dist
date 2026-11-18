@@ -27,6 +27,9 @@
         <testsuite name="local-update">
             <directory>tests/LocalUpdate</directory>
         </testsuite>
+        <testsuite name="backup">
+            <directory>tests/Backup</directory>
+        </testsuite>
     </testsuites>
 
     <source>

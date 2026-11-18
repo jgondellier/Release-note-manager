@@ -34,7 +34,7 @@ publication vers **Confluence Cloud** et **Confluence Server / Data Center** (ju
 13. [Confluence Server / Data Center](#13-confluence-server--data-center)
 14. [Test des connexions](#14-test-des-connexions)
 15. [Import d'une première release](#15-import-dune-première-release)
-16. [Publication et republication](#16-publication-et-republication)
+16. [Publication et republication](#16-publication-et-republication) (+ PV de recette, mises à jour, [sauvegarde](#16-quater-sauvegarde))
 17. [Tests](#17-tests)
 18. [Diagnostic](#18-diagnostic)
 19. [Proxy d'entreprise](#19-proxy-dentreprise)
@@ -466,6 +466,33 @@ passez `RNM_UPDATE_BACKGROUND=0`. Si Composer échoue depuis Apache faute de dos
 
 Première mise en place (une seule fois, à la main) : `git pull`, `composer install`,
 `php bin/console doctrine:migrations:migrate`, `php bin/console cache:clear` ; ensuite tout passe par l'écran.
+
+## 16 quater. Sauvegarde
+
+Menu **Administration › Sauvegarde** (comme dans WSUse) : crée une archive
+`rnm_sauvegarde_AAAAMMJJ_HHMMSS.zip` dans un répertoire choisi (chemin absolu, local ou partage réseau ;
+interdits : `public/` et `var/cache/` de l'application). L'archive contient :
+
+- la base : script SQL (`database/release_notes.sql`) pour MySQL / MariaDB, copie du fichier pour SQLite ;
+- les fichiers et dossiers listés dans les paramètres (par défaut `.env.local`, qui porte `APP_ENCRYPTION_KEY`) :
+  relatifs au dossier de l'application ou absolus, `*` accepté, `#` pour commenter ;
+- un `manifest.json` (date, format de la base, contenu, avertissements).
+
+Les sauvegardes au-delà du nombre conservé sont supprimées (seulement les `rnm_sauvegarde_*.zip`). Elles
+sont listées et téléchargeables depuis l'écran, accessible **depuis le poste seulement** (comme les mises à
+jour, `RNM_UPDATE_ALLOW_REMOTE`). L'archive contient les secrets : choisissez un répertoire protégé.
+
+Sauvegarde planifiée (planificateur de tâches Windows) :
+
+```bash
+php bin/console app:backup
+php bin/console app:backup --destination=D:/Sauvegardes/ReleaseNoteManager
+```
+
+Restauration : arrêter Apache, extraire l'archive, exécuter `database/release_notes.sql`
+(`mysql -u rnm -p release_notes < release_notes.sql`), recopier `fichiers/` dans le dossier de l'application
+(`externe/` : fichiers hors de l'application), puis `php bin/console doctrine:migrations:migrate -n` et
+`php bin/console cache:clear`.
 
 ## 17. Tests
 

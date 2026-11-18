@@ -53,6 +53,7 @@ hr { border: 0; border-top: 1px solid var(--c-border); }
 .nowrap { white-space: nowrap; }
 .break { word-break: break-all; }
 .text-danger { color: var(--c-danger) !important; }
+.text-success { color: var(--c-success) !important; }
 .placeholder { color: var(--c-text-muted); font-style: italic; margin: .25rem 0; }
 
 /* ---------- Layout ---------- */

@@ -11,8 +11,9 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 
 /**
- * « Mises à jour » lance des commandes sur le poste : accessible uniquement depuis le poste
- * lui-même (127.0.0.1), sauf RNM_UPDATE_ALLOW_REMOTE=1.
+ * « Mises à jour » lance des commandes sur le poste et « Sauvegarde » écrit et sert des archives
+ * contenant les secrets : accessibles uniquement depuis le poste lui-même (127.0.0.1),
+ * sauf RNM_UPDATE_ALLOW_REMOTE=1.
  */
 #[AsEventListener(event: KernelEvents::REQUEST, priority: 20)]
 class LocalOnlyListener
@@ -27,7 +28,11 @@ class LocalOnlyListener
     {
         $request = $event->getRequest();
         $path = $request->getPathInfo();
-        $screen = str_starts_with($path, '/updates') ? 'Les mises à jour de l\'application' : null;
+        $screen = match (true) {
+            str_starts_with($path, '/updates') => 'Les mises à jour de l\'application',
+            str_starts_with($path, '/backups') => 'La sauvegarde de l\'application',
+            default => null,
+        };
         if ($this->allowRemote || !$event->isMainRequest() || null === $screen) {
             return;
         }

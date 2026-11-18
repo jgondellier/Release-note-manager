@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sauvegarde{% endblock %}
+{% block breadcrumbs %}Administration › Sauvegarde{% endblock %}
+
+{% block body %}
+{% set disabled = not settings.destination or not zip %}
+<div class="page-header">
+    <div>
+        <h1>Sauvegarde</h1>
+        <p class="muted">Crée une archive <code>{{ constant('App\\Service\\Backup\\BackupManager::PREFIX') }}AAAAMMJJ_HHMMSS.zip</code> dans le répertoire de destination :
+        la base de données (script SQL pour MySQL / MariaDB), les fichiers et dossiers listés, et un <code>manifest.json</code>.
+        L'archive contient <code>.env.local</code> (clé de chiffrement, token d'administration) et les secrets chiffrés : choisissez un répertoire protégé.
+        En ligne de commande : <code>php bin/console app:backup</code>.</p>
+    </div>
+    <div class="actions">
+        <form method="post" action="{{ path('backup_run') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('backup-run') }}">
+            <button type="submit" class="btn btn-primary"{{ disabled ? ' disabled aria-describedby="backup-disabled"' }}>⛁ Sauvegarder maintenant</button>
+        </form>
+    </div>
+</div>
+
+{% if not zip %}
+    <div class="alert alert-danger" id="backup-disabled">Extension PHP <code>zip</code> absente : activez <code>extension=zip</code> dans le <code>php.ini</code>.</div>
+{% elseif not settings.destination %}
+    <div class="alert alert-warning" id="backup-disabled">Indiquez d'abord le répertoire de destination dans les paramètres.</div>
+{% endif %}
+
+<div class="grid grid-main-aside">
+    <div>
+        <form method="post" action="{{ path('backup_settings') }}" class="card">
+            <div class="card-header"><h2>Paramètres</h2></div>
+            <input type="hidden" name="_token" value="{{ csrf_token('backup-settings') }}">
+            <div class="field">
+                <label for="destination">Répertoire de destination</label>
+                <input type="text" id="destination" name="destination" value="{{ settings.destination }}" placeholder="D:/Sauvegardes/ReleaseNoteManager" autocomplete="off" spellcheck="false" aria-describedby="destination-help">
+                <p class="field-help" id="destination-help">Chemin absolu sur ce poste ou sur un partage réseau (ex. <code>\\serveur\partage\ReleaseNoteManager</code>). Créé s'il n'existe pas. Interdits : <code>public/</code> et <code>var/cache/</code> de l'application.</p>
+                {% if check %}<p class="small {{ check.ok ? 'text-success' : 'text-danger' }}" id="destination-check"><span aria-hidden="true">{{ check.ok ? '✔' : '⚠' }}</span> {{ check.message }}</p>{% endif %}
+            </div>
+            <div class="field">
+                <label for="paths">Fichiers et dossiers à sauvegarder</label>
+                <textarea id="paths" name="paths" rows="5" spellcheck="false" aria-describedby="paths-help">{{ settings.paths }}</textarea>
+                <p class="field-help" id="paths-help">Un par ligne. Relatif au dossier de l'application (<code>{{ projectDir }}</code>) ou absolu ; un dossier est sauvegardé avec tout son contenu ; <code>*</code> accepté (ex. <code>config/certs/*.pem</code>) ; une ligne commençant par <code>#</code> est ignorée.</p>
+            </div>
+            <label class="check"><input type="checkbox" id="includeDatabase" name="includeDatabase" value="1"{{ settings.includeDatabase ? ' checked' }}> <span>Sauvegarder la base de données</span></label>
+            <div class="field">
+                <label for="keep">Sauvegardes conservées</label>
+                <input type="number" id="keep" name="keep" min="0" value="{{ settings.keep }}" aria-describedby="keep-help">
+                <p class="field-help" id="keep-help">Les plus anciennes sont supprimées ; 0 = toutes conservées.</p>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn btn-secondary">Enregistrer les paramètres</button></div>
+        </form>
+
+        <section class="card">
+            <div class="card-header"><h2>Sauvegardes présentes</h2>{% if settings.destination %}<span class="small muted break">{{ settings.destination }}</span>{% endif %}</div>
+            <div class="table-wrap">
+                <table class="table" id="backups">
+                    <thead><tr><th scope="col">Archive</th><th scope="col">Date</th><th scope="col">Taille</th><th scope="col"><span class="sr-only">Télécharger</span></th></tr></thead>
+                    <tbody>
+                    {% for b in backups %}
+                        <tr>
+                            <td><code>{{ b.name }}</code></td>
+                            <td class="small nowrap">{{ b.date|date('d/m/Y H:i') }}</td>
+                            <td class="small nowrap">{{ b.size < 1048576 ? (b.size / 1024)|round(1)|replace({'.': ','}) ~ ' Ko' : (b.size / 1048576)|round(1)|replace({'.': ','}) ~ ' Mo' }}</td>
+                            <td class="nowrap"><a class="btn btn-sm btn-secondary" href="{{ path('backup_download', {name: b.name}) }}" aria-label="Télécharger {{ b.name }}">Télécharger</a></td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="muted">Aucune sauvegarde.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <section class="card">
+        <div class="card-header"><h2>Automatisation et restauration</h2></div>
+        <p class="small">Commande (planificateur de tâches Windows) :</p>
+        <pre class="small"><code>php bin/console app:backup
+php bin/console app:backup --destination=D:/Sauvegardes/ReleaseNoteManager</code></pre>
+        <p class="small">Restaurer : arrêter Apache, extraire l'archive, puis</p>
+        <ul class="small">
+            <li>base : exécuter <code>database/release_notes.sql</code> (<code>mysql -u rnm -p release_notes &lt; release_notes.sql</code>) ;</li>
+            <li>fichiers : recopier le contenu de <code>fichiers/</code> dans le dossier de l'application (<code>externe/</code> : fichiers hors de l'application, avec leur chemin d'origine) ;</li>
+            <li>puis <code>php bin/console doctrine:migrations:migrate -n</code> et <code>php bin/console cache:clear</code>.</li>
+        </ul>
+        <p class="small muted">Gardez la clé <code>APP_ENCRYPTION_KEY</code> avec la base : sans elle, les tokens Jira / Confluence sont irrécupérables.</p>
+    </section>
+</div>
+{% endblock %}
