@@ -498,7 +498,7 @@ Restauration : arrêter Apache, extraire l'archive, exécuter `database/release_
 
 ```bash
 composer install                       # dépendances de dev incluses
-php vendor/bin/phpunit                 # 76 tests (unitaires, intégration, fonctionnels)
+php vendor/bin/phpunit                 # 136 tests (unitaires, intégration, fonctionnels, mises à jour, sauvegarde)
 php vendor/bin/phpunit --testsuite unit
 php vendor/bin/phpunit --testsuite integration
 php vendor/bin/phpunit --testsuite functional

@@ -92,6 +92,7 @@ final class BackupTest extends WebTestCaseBase
         $this->client->request('GET', $download);
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('attachment', (string) $this->client->getResponse()->headers->get('Content-Disposition'));
+        self::assertSame('application/zip', $this->client->getResponse()->headers->get('Content-Type'));
         $this->client->request('GET', '/backups/download/'.BackupManager::PREFIX.'20000101_000000.zip');
         self::assertResponseStatusCodeSame(404);
         $this->client->request('GET', '/backups/download/autre.zip');
@@ -122,7 +123,7 @@ final class BackupTest extends WebTestCaseBase
         self::assertFileDoesNotExist($this->dir.'/'.BackupManager::PREFIX.'20200101_000000.zip');
     }
 
-    public function testRefusedDestinationsAndAccess(): void
+    public function testRefusedDestinationsAndRemoteAccess(): void
     {
         $projectDir = (string) static::getContainer()->getParameter('kernel.project_dir');
         foreach (['relatif/dossier' => 'chemin absolu', $projectDir.'/public/sauvegardes' => 'public/', $projectDir.'/var/cache/x' => 'var/cache/'] as $destination => $message) {
@@ -134,12 +135,15 @@ final class BackupTest extends WebTestCaseBase
             }
         }
 
-        $this->client->request('GET', '/backups');
-        self::assertResponseRedirects('/login');
-
         $this->login();
         $this->client->request('GET', '/backups', server: ['REMOTE_ADDR' => '10.1.2.3']);
         self::assertResponseStatusCodeSame(403);
+    }
+
+    public function testAnonymousAccessIsRefused(): void
+    {
+        $this->client->request('GET', '/backups');
+        self::assertResponseRedirects('/login');
     }
 
     public function testCommand(): void

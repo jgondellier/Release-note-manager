@@ -99,7 +99,9 @@ final class BackupController extends AbstractAppController
     {
         $path = $this->backups->find($this->settings->getSettings()->getDestination(), $name) ?? throw $this->createNotFoundException('Sauvegarde introuvable.');
 
-        return (new BinaryFileResponse($path))->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $name);
+        // Type indiqué explicitement : symfony/mime (détection automatique) n'est pas installé.
+        return (new BinaryFileResponse($path, headers: ['Content-Type' => 'application/zip']))
+            ->setContentDisposition(ResponseHeaderBag::DISPOSITION_ATTACHMENT, $name);
     }
 
     private function size(int $bytes): string
