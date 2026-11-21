@@ -24,7 +24,7 @@
         "symfony/framework-bundle": "7.4.*",
         "symfony/http-client": "7.4.*",
         "symfony/lock": "7.4.*",
-        "symfony/monolog-bundle": "^3.10",
+        "symfony/monolog-bundle": "^4.1",
         "symfony/process": "7.4.*",
         "symfony/security-csrf": "7.4.*",
         "symfony/translation": "7.4.*",
